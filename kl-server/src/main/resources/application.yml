@@ -1,0 +1,147 @@
+spring:
+  profiles:
+    active: local
+  application:
+    name: kidslearn-backend
+
+  # ========== 数据库 ==========
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kidslearn}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # ========== 虚拟线程 ==========
+  threads:
+    virtual:
+      enabled: true
+
+  # ========== Flyway ==========数据库版本控制工具 主要用途是：在应用启动时，自动帮你执行和管理数据库的建表、改表（SQL）脚本。
+  flyway:
+    enabled: true
+    baseline-on-migrate: true # 功能：在非空数据库（已经有表的库）上建立基线。 效果：这是非常关键的一条！如果你的数据库里已经有表了（比如你手动跑过 SQL），Flyway 默认运行时会报错拒绝执行。开启这个配置后，Flyway 会把当前数据库的状态当作一个起点（基线），从这个起点开始，只执行后续新加的脚本，而不再报错。
+    locations: classpath:db/migration
+    baseline-version: 8 # 既然数据库已经包含了截至 V8 的所有表，这里必须设为 8，这样 Flyway 就不会尝试重复跑 V1 到 V8 的建表脚本了。下次写 V9__.sql 才会执行。
+
+  # ========== 问题详情 ==========
+  mvc:
+    problemdetails:
+      enabled: true
+
+  # ========== Redis ==========
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: 5s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
+
+# ========== 服务器 ==========
+server:
+  port: ${APP_PORT:8080}
+  servlet:
+    context-path: /
+
+# ========== 答题与奖励配置 ==========
+app:
+  quiz:
+    reward-question-ratio: 0.2
+    base-stars: 8
+    base-xp: 18
+    reward-stars: 10
+    reward-xp: 20
+    wrong-deduction-stars: 0
+    daily-stars-limit: 50
+  plan:
+    default-duration-days: 14
+    default-difficulty: medium
+
+# ========== JWT ==========
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-change-in-production}
+  expiration: 86400000
+
+# ========== LLM 配置 ==========
+llm:
+  provider: anthropic
+  anthropic:
+    base-url: https://api.anthropic.com
+    api-key: ${ANTHROPIC_API_KEY:}
+    max-tokens: 4096
+    timeout: 60s
+  openai:
+    base-url: https://api.openai.com
+    api-key: ${OPENAI_API_KEY:}
+    max-tokens: 4096
+    timeout: 60s
+  minimax:
+    base-url: https://api.minimax.chat/v1
+    api-key: ${MINIMAX_API_KEY:}
+    max-tokens: 4096
+    timeout: 60s
+  kimi:
+    base-url: https://api.moonshot.cn/v1
+    api-key: ${KIMI_API_KEY:}
+    max-tokens: 4096
+    timeout: 60s
+  models:
+    chat: claude-sonnet-4-7-20260219          # or minimax: abab6.5s-chat, kimi: moonshot-v1-8k
+    plan-generate: claude-sonnet-4-7-20260219 # or minimax: abab6.5s-chat, kimi: moonshot-v1-32k
+    plan-adjust: claude-sonnet-4-7-20260219   # or minimax: abab6.5s-chat, kimi: moonshot-v1-32k
+    daily-msg: claude-haiku-4-5-20260220
+
+# ========== 安全过滤 ==========
+safety:
+  input-filter:
+    max-input-length: 200
+  event-retention-days: 30
+
+# ========== 推送通知 ==========
+apns:
+  enabled: false
+  key-id: ${APNS_KEY_ID:}
+  team-id: ${APNS_TEAM_ID:}
+  bundle-id: ${APNS_BUNDLE_ID:}
+  environment: ${APNS_ENV:sandbox}
+
+# ========== 可观测性 ==========
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: 0.1
+
+# ========== 日志 ==========
+logging:
+  level:
+    root: INFO
+    com.kidslearn: DEBUG
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"

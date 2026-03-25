@@ -1,0 +1,512 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useAppStore } from '../stores/appStore'
+import TwemojiText from './TwemojiText.vue'
+
+const props = defineProps<{
+  isCorrect: boolean
+  resultMode?: 'correct' | 'wrong' | 'reward'
+  combo: number
+  accuracy: number
+  timeSpent: number
+  xp: number
+  xpNeeded: number
+  level: number
+  rewardIcon?: string
+  rewardTitle?: string
+  rewardSub?: string
+  explanation?: string
+  explanationSteps?: string[]
+  encouragement?: string
+  correctAnswerText?: string
+}>()
+
+const emit = defineEmits<{
+  (e: 'next'): void
+}>()
+
+const store = useAppStore()
+const { child, todayStars, todayMaxStars } = storeToRefs(store)
+
+const isExplaining = ref(false)
+
+function stopExplanation() {
+  if ('speechSynthesis' in window) speechSynthesis.cancel()
+  isExplaining.value = false
+}
+
+function doSpeakExplanation() {
+  if (isExplaining.value) speechSynthesis.cancel()
+
+  const text = props.explanationSteps?.length
+    ? `正确答案：${props.correctAnswerText}。${props.explanationSteps.join('。')}`
+    : props.explanation
+    ? `正确答案：${props.correctAnswerText}。${props.explanation}`
+    : `正确答案：${props.correctAnswerText}。${props.encouragement ?? ''}`
+
+  const safeText = text.trim().replace(/[。.！!?！?]$/, '') + '。'
+  const utterance = new SpeechSynthesisUtterance(safeText)
+  utterance.lang = 'zh-CN'
+  utterance.rate = 0.7
+  utterance.pitch = 1.0
+  utterance.volume = 1.0
+
+  const voices = speechSynthesis.getVoices()
+  const zhVoice = voices.find(v => v.lang === 'zh-CN')
+    || voices.find(v => v.lang.startsWith('zh'))
+  if (zhVoice) utterance.voice = zhVoice
+
+  utterance.onstart = () => { isExplaining.value = true }
+  utterance.onend = () => { isExplaining.value = false }
+  utterance.onerror = () => { isExplaining.value = false }
+  speechSynthesis.speak(utterance)
+}
+
+function speakExplanation() {
+  if (!('speechSynthesis' in window)) return
+
+  const voices = speechSynthesis.getVoices()
+  if (voices.length > 0) {
+    doSpeakExplanation()
+    return
+  }
+
+  const handler = () => {
+    speechSynthesis.removeEventListener('voiceschanged', handler)
+    doSpeakExplanation()
+  }
+  speechSynthesis.addEventListener('voiceschanged', handler)
+  setTimeout(() => {
+    speechSynthesis.removeEventListener('voiceschanged', handler)
+    const v2 = speechSynthesis.getVoices()
+    if (v2.length > 0) doSpeakExplanation()
+  }, 500)
+}
+
+const resolvedMode = computed(() => {
+  if (props.resultMode) return props.resultMode
+  return props.isCorrect ? 'correct' : 'wrong'
+})
+
+const isReward = computed(() => resolvedMode.value === 'reward')
+const isWrong = computed(() => resolvedMode.value === 'wrong')
+const isCorrect = computed(() => resolvedMode.value === 'correct')
+const childName = computed(() => child?.name ?? '小朋友')
+const actionLabel = computed(() => (isWrong.value ? '我记住了，继续 →' : '继续下一题 →'))
+const titleText = computed(() => {
+  if (isReward.value) return `太棒了${childName.value}！`
+  return isWrong.value ? '哎呀，答错了' : '太棒了！答对了！'
+})
+const subtitleText = computed(() => {
+  if (isReward.value) return '连续答对触发奖励，快来收下这份鼓励'
+  return isWrong.value ? '没关系，我来帮你讲解，下次一定能答对' : '小星老师给你点个大大的赞'
+})
+</script>
+
+<template>
+  <Teleport to="body">
+    <div class="overlay" :class="{ wrong: isWrong, correct: isCorrect || isReward }">
+      <div class="sheet" :class="{ correct: isCorrect || isReward }">
+        <div class="sheet-top" :class="{ wrong: isWrong }">
+          <div class="status-ring" :class="{ wrong: isWrong }">
+            <svg v-if="!isWrong" viewBox="0 0 44 44" fill="none" width="44" height="44" aria-hidden="true">
+              <path
+                d="M8 22L18 32L36 12"
+                stroke="white"
+                stroke-width="4.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-dasharray="48"
+                stroke-dashoffset="48"
+                style="animation: drawCheck .5s .2s ease forwards"
+              />
+            </svg>
+            <svg v-else viewBox="0 0 36 36" fill="none" width="36" height="36" aria-hidden="true">
+              <path
+                d="M10 10L26 26M26 10L10 26"
+                stroke="white"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-dasharray="45"
+                stroke-dashoffset="45"
+                style="animation: drawCheck .4s .15s ease forwards"
+              />
+            </svg>
+          </div>
+          <div class="sheet-title">{{ titleText }}</div>
+          <div class="sheet-sub">{{ subtitleText }}</div>
+        </div>
+
+        <div v-if="!isWrong" class="correct-body">
+          <TwemojiText tag="div" class="teacher-emoji" text="🥳" />
+          <TwemojiText tag="div" class="score-pop" :text="`🌟 今日 ${todayStars}/${todayMaxStars}`" />
+          <TwemojiText v-if="combo > 1" tag="div" class="combo-pill" :text="`🔥 连续答对 ${combo} 题`" />
+
+          <!-- 简洁奖励信息 -->
+          <div v-if="isReward && rewardTitle" class="reward-badge">
+            <TwemojiText tag="div" class="reward-badge-icon" :text="rewardIcon ?? ''" />
+            <div class="reward-badge-copy">
+              <div class="reward-badge-title">{{ rewardTitle }}</div>
+              <div class="reward-badge-sub">{{ rewardSub }}</div>
+            </div>
+          </div>
+
+          <div class="xp-block">
+            <div class="xp-head">
+              <span>等级 {{ level }}</span>
+              <span>{{ xp }} / {{ xpNeeded }} XP</span>
+            </div>
+            <div class="xp-track">
+              <div class="xp-fill" :style="{ width: `${Math.min(100, (xp / Math.max(1, xpNeeded)) * 100)}%` }"></div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="wrong-body">
+          <div class="teacher-mini">
+            <TwemojiText tag="div" class="teacher-mini-icon" text="🌟" />
+            <div class="teacher-mini-bubble">
+              正确答案是 <strong>{{ correctAnswerText }}</strong>，来看看为什么吧
+            </div>
+          </div>
+
+          <div class="explain-card">
+            <div class="explain-icon">💡</div>
+            <div class="explain-value">{{ correctAnswerText }}</div>
+            <div class="explain-text">
+              {{ explanation || (explanationSteps ? explanationSteps[0] : '') }}
+            </div>
+            <button class="explain-speak" @click.stop="speakExplanation">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M5 9H8L13 5V19L8 15H5V9Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M16 8.5C17.8 9.9 19 11.9 19 14C19 16.1 17.8 18.1 16 19.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              听老师讲
+            </button>
+          </div>
+
+          <div v-if="encouragement" class="encouragement">{{ encouragement }}</div>
+        </div>
+
+        <button class="action-btn" :class="{ wrong: isWrong }" @click="stopExplanation(); emit('next')">
+          {{ actionLabel }}
+        </button>
+      </div>
+    </div>
+  </Teleport>
+</template>
+
+<style scoped>
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 25, 39, 0.45);
+  backdrop-filter: blur(4px);
+  overflow: hidden;
+  font-family: inherit;
+}
+
+.overlay.wrong {
+  align-items: flex-end;
+  background: rgba(11, 21, 38, 0.5);
+}
+
+.overlay.correct {
+  align-items: flex-end;
+  background: rgba(20, 25, 39, 0.45);
+}
+
+.sheet {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 28px 28px 0 0;
+  background: #fff;
+  box-shadow: 0 -12px 32px rgba(19, 36, 68, 0.12);
+  animation: slideUpSheet 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+.sheet-top {
+  padding: 24px 32px 20px;
+  text-align: center;
+  background: linear-gradient(180deg, #effaf0 0%, #ffffff 100%);
+}
+
+.sheet-top.wrong {
+  background: linear-gradient(180deg, #fff2ef 0%, #ffffff 100%);
+}
+
+.status-ring {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #43a047, #66bb6a);
+  box-shadow: 0 8px 24px rgba(67, 160, 71, 0.35);
+}
+
+.status-ring.wrong {
+  background: linear-gradient(135deg, #ef5350, #ff8a65);
+  box-shadow: 0 8px 24px rgba(239, 83, 80, 0.28);
+}
+
+.sheet-title {
+  font-size: 28px;
+  font-weight: 900;
+  color: #273238;
+}
+
+.sheet-sub {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #73808c;
+}
+
+.correct-body,
+.wrong-body {
+  padding: 0 32px 20px;
+}
+
+.correct-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.teacher-emoji {
+  font-size: 76px;
+  line-height: 1;
+}
+
+.score-pop {
+  margin-top: 12px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: rgba(255, 213, 79, 0.2);
+  color: #f57c00;
+  font-weight: bold;
+}
+
+.combo-pill {
+  margin-top: 14px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff7043, #ffb74d);
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.reward-badge {
+  display: flex;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: #FFF9E6;
+  border: 1.5px solid #FFD54F;
+}
+
+.reward-badge-icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.reward-badge-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #BF360C;
+}
+
+.reward-badge-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #8a6d3b;
+}
+
+.xp-block {
+  margin-top: 16px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 213, 79, 0.12);
+  border: 1px solid rgba(255, 213, 79, 0.3);
+}
+
+.xp-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #8a6d3b;
+  font-weight: 600;
+}
+
+.xp-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 213, 79, 0.2);
+  overflow: hidden;
+}
+
+.xp-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #FFD54F, #ff7043);
+  transition: width 0.35s ease;
+}
+
+.teacher-mini {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.teacher-mini-icon {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffb74d, #ff7043);
+  color: #fff;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.teacher-mini-bubble {
+  flex: 1;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #fff6f0;
+  color: #5d463d;
+  line-height: 1.6;
+}
+
+.teacher-mini-bubble strong {
+  color: #43a047;
+}
+
+.explain-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 18px;
+  border-radius: 22px;
+  background: #fff8f5;
+  border: 1.5px solid #ffe2d6;
+  text-align: center;
+  gap: 12px;
+}
+
+.explain-icon {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.explain-value {
+  display: inline-flex;
+  padding: 10px 24px;
+  border-radius: 999px;
+  background: #e9f7ea;
+  color: #2e7d32;
+  font-weight: bold;
+  font-size: 17px;
+}
+
+.explain-text {
+  color: #5d463d;
+  line-height: 1.6;
+  font-size: 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.explain-speak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: #FF8A65;
+  border: none;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.explain-speak:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+.encouragement {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ff7043;
+  padding: 10px 0;
+}
+
+.action-btn {
+  width: 100%;
+  margin: 0 0 26px;
+  border: 0;
+  border-radius: 999px;
+  padding: 16px;
+  background: linear-gradient(135deg, #43a047, #66bb6a);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 900;
+  box-shadow: 0 12px 24px rgba(67, 160, 71, 0.24);
+}
+
+.action-btn.wrong {
+  background: linear-gradient(135deg, #ff8a65, #ff7043);
+  box-shadow: 0 12px 24px rgba(255, 112, 67, 0.22);
+}
+
+@keyframes slideUpSheet {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes drawCheck {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes floatUp {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+</style>

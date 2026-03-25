@@ -1,0 +1,45 @@
+# ===================
+# Excluded directories
+# ===================
+/html-sample/
+/ui-design/
+
+# ===================
+# Dependencies
+# ===================
+/kl-ui/node_modules/
+/kl-ui/.pnpm-store/
+
+# ===================
+# Build outputs
+# ===================
+/kl-ui/dist/
+/kl-ui/coverage/
+/kl-server/target/
+
+# ===================
+# IDE & OS
+# ===================
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*.log
+
+# ===================
+# Local config (sensitive)
+# ===================
+/kl-server/src/main/resources/application-local.yml
+.env
+.env.local
+.env.*.local
+
+# ===================
+# Tools
+# ===================
+.gstack/
+.mcp.json
+*.dump

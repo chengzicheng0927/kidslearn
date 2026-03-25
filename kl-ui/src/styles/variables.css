@@ -1,0 +1,129 @@
+:root {
+  /* Colors */
+  --or: #FF7043;
+  --or-l: #FFF3EF;
+  --or-d: #BF360C;
+  --bl: #29B6F6;
+  --bl-l: #E1F5FE;
+  --bl-d: #0277BD;
+  --gn: #66BB6A;
+  --gn-l: #E8F5E9;
+  --gn-d: #1B5E20;
+  --yw: #FFD54F;
+  --yw-d: #E65100;
+  --pu: #AB47BC;
+  --pu-l: #F3E5F5;
+
+  --bg: #FFF8F3;
+  --card: #FFFFFF;
+  --txt: #2D2D2D;
+  --muted: #9E9E9E;
+  --sub: #8B7355;
+  --border: #F0E8E0;
+
+  /* Calendar / dark-theme compatible */
+  --s1: #F5EFE8;
+  --s2: #EDE5DC;
+  --s3: #FFFFFF;
+  --t2: #666666;
+  --t3: #888888;
+  --t4: #AAAAAA;
+
+  /* Typography */
+  --font-family: 'PingFang SC', 'Hiragino Sans GB', 'Heiti SC', 'Microsoft YaHei', sans-serif;
+
+  /* Borders */
+  --radius-sm: 14px;
+  --radius-md: 20px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+
+  /* Shadows */
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, .09);
+  --shadow-bubble-ai: 0 2px 10px rgba(0, 0, 0, .08);
+  --shadow-bubble-usr: 0 3px 12px rgba(255, 112, 67, .3);
+  --shadow-mascot: 0 4px 14px rgba(255, 112, 67, .35);
+  --shadow-star-pill: 0 3px 10px rgba(230, 81, 0, .3);
+  --shadow-send-btn: 0 3px 10px rgba(255, 112, 67, .4);
+
+  /* Animations */
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+:root {
+  /* Z-Index Scale */
+  --z-base: 10;
+  --z-above: 100;
+  --z-modal: 1000;
+  --z-overlay: 1000;
+  --z-modal-close: 1100;
+  --z-achievement: 1500;
+  --z-exit-confirm: 2000;
+  --z-parent: 2000;
+  --z-settings: 2100;
+}
+
+/* Calendar dark theme */
+:root[data-theme="calendar"] {
+  --bg: #0E0D1C;
+  --s1: #181627;
+  --s2: #211E35;
+  --s3: #2A263E;
+  --border: rgba(255, 255, 255, 0.07);
+  --or: #FF7043;
+  --yw: #FFD54F;
+  --bl: #40C4FF;
+  --gn: #69F0AE;
+  --pu: #CE93D8;
+  --txt: #FFFFFF;
+  --sub: rgba(255, 255, 255, 0.55);
+  --t2: rgba(255, 255, 255, 0.55);
+  --t3: rgba(255, 255, 255, 0.28);
+  --t4: rgba(255, 255, 255, 0.12);
+}
+
+/* 护眼模式 - 减少蓝光，暖黄色调，适合儿童夜间使用 */
+:root[data-theme="eye-care"] {
+  --bg: #FFF9E6;
+  --card: #FFFDF0;
+  --txt: #3D2B1F;
+  --muted: #8B7355;
+  --sub: #7A6B5A;
+  --border: #F5E6CC;
+  --or: #E67E22;
+  --or-l: #FDF3E7;
+  --or-d: #A0522D;
+  --bl: #7FB3D5;
+  --bl-l: #EBF5FB;
+  --bl-d: #2E86C1;
+  --gn: #82C87A;
+  --gn-l: #F0FBF0;
+  --gn-d: #27AE60;
+  --yw: #F4D03F;
+  --yw-d: #B7950B;
+  --pu: #BB8FCE;
+  --pu-l: #F5EEF8;
+  /* 暖色调阴影 */
+  --shadow-card: 0 4px 20px rgba(139, 90, 43, .08);
+  --shadow-bubble-ai: 0 2px 10px rgba(139, 90, 43, .06);
+  --shadow-bubble-usr: 0 3px 12px rgba(230, 126, 34, .25);
+  --shadow-mascot: 0 4px 14px rgba(230, 126, 34, .3);
+  --shadow-star-pill: 0 3px 10px rgba(184, 134, 11, .3);
+  --shadow-send-btn: 0 3px 10px rgba(230, 126, 34, .35);
+}
+
+/* 英语学习场景 - 蓝色调沉浸式背景 */
+:root[data-scene="en"] {
+  --scene-bg: linear-gradient(160deg, #E3F2FD 0%, #BBDEFB 40%, #FFF8F3 100%);
+}
+
+/* 数学学习场景 - 绿色调沉浸式背景 */
+:root[data-scene="math"] {
+  --scene-bg: linear-gradient(160deg, #E8F5E9 0%, #C8E6C9 40%, #FFF8F3 100%);
+}
+
+/* Default scene backgrounds */
+:root {
+  --scene-bg: var(--bg);
+}
