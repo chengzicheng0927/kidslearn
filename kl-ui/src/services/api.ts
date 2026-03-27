@@ -130,11 +130,16 @@ async function request<T>(
 
     if (!response.ok) {
       const msg = (data as any)?.message || (data as any)?.msg || response.statusText
-      if (API_CONFIG.DEBUG) {
-        console.error(`[API Error] ${response.status} ${url}:`, msg)
+      if (response.status >= 500) {
+        if (API_CONFIG.DEBUG) {
+          console.error(`[API Error] ${response.status} ${url}:`, msg)
+        }
+        window.__API_ERROR_HANDLER__?.(msg)
       }
-      // HTTP 错误在入口统一 toast，业务层不关心
-      window.__API_ERROR_HANDLER__?.(msg)
+      // 4xx 业务错误不抛异常，调用方自行处理（避免控制台报错）
+      if (response.status < 500) {
+        throw new ApiException(response.status, msg, true)
+      }
       throw new ApiException(response.status, msg)
     }
 
@@ -157,7 +162,8 @@ async function request<T>(
 export class ApiException extends Error {
   constructor(
     public code: number,
-    message: string
+    message: string,
+    public silent = false
   ) {
     super(message)
     this.name = 'ApiException'
@@ -530,35 +536,55 @@ export async function submitAnswer(
  * 获取下一题
  * POST /api/quiz/next
  *
- * 【重要】后端维护题目进度，返回下一道题目
+ * 返回 { question, summary }（有题时）或 { question: null, summary }（无题时）
  */
 export async function getNextQuestion(
   subject?: 'en' | 'ma',
   _startIndex?: number
-): Promise<Question | null> {
+): Promise<{ question: Question | null; summary: QuizSummaryDTO }> {
   await sleep(200)
   if (API_CONFIG.USE_MOCK) {
     const store = useAppStore()
     const index = store.consumeNextQuestionIndex()
     const questionBank = await getQuestionBank(subject)
-    if (index >= questionBank.length) return null
-    return questionBank[index]
+    const question = index < questionBank.length ? questionBank[index] : null
+    // Mock summary 与后端逻辑对齐
+    const mockSummary: QuizSummaryDTO = {
+      hasMore: question !== null,
+      todayTotal: questionBank.length,
+      todayMaxStars: questionBank.length * 2,
+      todayDone: store.quizSession.answeredCount,
+      todayStarsEarned: store.todayStars,
+      todayTargetEn: store.dailyTasks.enTarget,
+      todayTargetMa: store.dailyTasks.maTarget,
+    }
+    return { question, summary: mockSummary }
   }
 
   const req: QuizNextRequest = { subject }
   const childId = useAppStore().child?.id
-  const resp = await request<QuizNextResponse | null>(`/api/quiz/next?childId=${childId}`, {
+  const resp = await request<QuizNextResponse>(`/api/quiz/next?childId=${childId}`, {
     method: 'POST',
     body: JSON.stringify(req),
-  }).catch(e => {
-    // Backend returns 404 when no more questions available in DB
-    if (e instanceof ApiException && e.code === 404) return null
-    throw e
   })
-  
-  if (!resp || !resp.id) return null
-  // 后端返回的直接就是扁平的题目数据对象（且已脱下 data 壳）
-  return resp as unknown as Question
+
+  // resp 是 QuizNextResponse: HasQuestion 有 question，NoMoreQuestions 无 question
+  const summary = resp.summary
+  const question = resp.question ? {
+    id: resp.question.id,
+    subject: resp.question.subject,
+    label: resp.question.label,
+    question: resp.question.question,
+    options: resp.question.options,
+    correctAnswerId: '', // 后端不在此处返回，由 submit 验证
+    explanation: '',
+    explanationSteps: [],
+    encouragement: '',
+    estimatedMinutes: resp.question.estimatedMinutes,
+    reward: { stars: 2, xp: 20 },
+  } : null
+
+  return { question, summary }
 }
 
 /**
@@ -688,7 +714,7 @@ export async function verifyPassword(password: string): Promise<VerifyPasswordRe
 
 /**
  * 获取学习计划列表
- * GET /api/parent/plans
+ * GET /api/parent/plan/plans
  */
 export async function getParentPlans(
   _req: GetParentPlansRequest = {}
@@ -700,7 +726,7 @@ export async function getParentPlans(
     return { plans: mockParentPlans, activePlan }
   }
 
-  return request<GetParentPlansResponse>('/api/parent/plans')
+  return request<GetParentPlansResponse>('/api/parent/plan/plans')
 }
 
 /**
@@ -923,14 +949,14 @@ export async function getParentSettings(): Promise<ParentSettings> {
     return stored ? { ...defaults, ...stored } : defaults
   }
 
-  const resp = await request<GetParentSettingsResponse>('/api/parent/settings')
+  const resp = await request<any>('/api/parent/settings')
   return {
     dailyLimitMinutes: resp.dailyLimitMinutes,
     dndEnabled: resp.dndEnabled,
     dndStart: resp.dndStart,
     dndEnd: resp.dndEnd,
-    eyeCareReminderEnabled: resp.eyeCareReminderEnabled,
-    breakReminderEnabled: resp.breakReminderEnabled,
+    eyeCareReminderEnabled: resp.eyeCareReminder,
+    breakReminderEnabled: resp.breakReminder,
     teacherName: resp.teacherName ?? '小星老师',
   }
 }
@@ -953,11 +979,20 @@ export async function updateParentSettings(
   }
 
   const req: UpdateParentSettingsRequest = { ...settings }
-  const resp = await request<UpdateParentSettingsResponse>('/api/parent/settings', {
+  const resp = await request<any>('/api/parent/settings', {
     method: 'PUT',
     body: JSON.stringify(req),
   })
-  return resp.settings
+  // resp 已经是 unwrap 后的 settings 对象，需要映射字段名
+  return {
+    dailyLimitMinutes: resp.dailyLimitMinutes,
+    dndEnabled: resp.dndEnabled,
+    dndStart: resp.dndStart,
+    dndEnd: resp.dndEnd,
+    eyeCareReminderEnabled: resp.eyeCareReminder,
+    breakReminderEnabled: resp.breakReminder,
+    teacherName: resp.teacherName,
+  } as ParentSettings
 }
 
 // ============================================================
@@ -1201,7 +1236,6 @@ export async function feedPet(
     ]
     return { success: true, newStars: resp.childStars, newStats }
   } catch (e) {
-    console.error('Feed pet failed', e)
     return { success: false, newStars: store.child?.stars ?? 0, newStats: store.petState.stats }
   }
 }

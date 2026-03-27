@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import ParentChatTimeline from '../components/ParentMode/ParentChatTimeline.vue'
 import ParentInputBar from '../components/ParentMode/ParentInputBar.vue'
 import ParentSettingsModal from '../components/ParentMode/ParentSettingsModal.vue'
+import PlanHistoryPanel from '../components/ParentMode/PlanHistoryPanel.vue'
 import { useParentState } from '../composables/useParentState'
 
 const emit = defineEmits<{
@@ -14,6 +15,7 @@ const {
   isLoading,
   pendingPlan,
   activePlan,
+  planHistory,
   initParentState,
   sendMessage,
   handleConfirmPlan,
@@ -22,6 +24,12 @@ const {
 } = useParentState()
 
 const showSettings = ref(false)
+const showPlanHistory = ref(false)
+
+// 过滤掉当前活跃计划，显示历史计划
+const historyPlans = computed(() => {
+  return planHistory.value.filter(p => p.id !== activePlan.value?.id)
+})
 
 onMounted(async () => {
   await initParentState()
@@ -108,7 +116,23 @@ function handleCardAction(action: string, message: any) {
           <span class="banner-text">
             当前计划：{{ activePlan.duration }}天{{ activePlan.subject === 'en' ? '英语' : '数学' }}学习 · 第{{ activePlan.phases.length }}阶段
           </span>
+          <button
+            class="expand-btn"
+            @click="showPlanHistory = !showPlanHistory"
+            :title="showPlanHistory ? '收起历史计划' : '查看历史计划'"
+          >
+            {{ showPlanHistory ? '∧' : '»' }}
+          </button>
         </div>
+
+        <!-- 历史计划展开面板 -->
+        <Transition name="slide-down">
+          <PlanHistoryPanel
+            v-if="showPlanHistory && historyPlans.length > 0"
+            :plan-history="historyPlans"
+            @close="showPlanHistory = false"
+          />
+        </Transition>
 
         <!-- 聊天时间轴 -->
         <ParentChatTimeline
@@ -218,6 +242,48 @@ function handleCardAction(action: string, message: any) {
   flex: 1;
   font-size: 13px;
   color: #555;
+}
+
+/* 展开按钮 */
+.expand-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: #E8E4FF;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #7c6df8;
+  font-weight: 700;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.expand-btn:active {
+  background: #D0C8FF;
+  transform: scale(0.92);
+}
+
+/* 瀑布展开动画 */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease-out;
+  overflow: hidden;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.slide-down-enter-to,
+.slide-down-leave-from {
+  max-height: 500px;
+  opacity: 1;
 }
 
 </style>

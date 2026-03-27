@@ -51,11 +51,11 @@ function setDndEnd(time: string) {
 }
 
 function toggleEyeCare(enabled: boolean) {
-  save('eyeCareReminderEnabled', enabled)
+  save('eyeCareReminder', enabled)
 }
 
 function toggleBreakReminder(enabled: boolean) {
-  save('breakReminderEnabled', enabled)
+  save('breakReminder', enabled)
 }
 
 function updateTeacherName(name: string) {
@@ -235,9 +235,10 @@ function updateTeacherName(name: string) {
   width: 100%;
   max-height: 90vh;
   background: #fff;
-  border-radius: 28px 28px 0 0;
+  border-radius: 8px 8px 0 0;
   overflow-y: auto;
-  animation: slideUp 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+  transform: translateY(0);
+  will-change: transform;
 }
 
 .sheet-header {
