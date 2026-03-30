@@ -75,9 +75,15 @@ defineExpose({ push })
 .dmk-item {
   position: absolute;
   left: 100%;
-  /* 两边都是圆角 - 云朵/气球感 */
-  border-radius: 24px;
-  padding: 10px 22px;
+  /* 云朵形状 */
+  clip-path: polygon(
+    6% 50%, 10% 26%, 18% 12%, 32% 6%,
+    48% 3%, 62% 7%, 74% 16%, 83% 28%,
+    90% 42%, 94% 55%, 92% 70%, 84% 80%,
+    72% 88%, 58% 92%, 42% 94%, 28% 90%,
+    16% 82%, 8% 70%, 3% 58%
+  );
+  padding: 12px 24px;
   color: #5D4037;
   font-size: 15px;
   font-weight: 700;
@@ -85,11 +91,9 @@ defineExpose({ push })
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   transform: translateY(-50%);
   letter-spacing: 0.5px;
-  border: 1.5px solid rgba(255, 255, 255, 0.5);
-  /* 初始位置：从屏幕右侧20%处开始 */
+  /* 动画开始前保持在右侧可见 */
   animation: dmkFly 5s linear forwards;
   animation-delay: 0.3s;
-  /* 动画开始前保持在右侧可见 */
   opacity: 0;
 }
 

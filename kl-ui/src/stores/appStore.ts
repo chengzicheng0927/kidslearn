@@ -112,18 +112,17 @@ export const useAppStore = defineStore('app', () => {
   // 今日星星（按天重置）
   const todayStars = ref<number>(loadTodayStars())
 
-  // 最大星星 = 各学科目标题目奖励之和（mock 模式用计算值，real 模式由后端返回）
-  function calcTodayMaxStars() {
+  // 最大星星：
+  // - Mock 模式：从题库计算
+  // - Real 模式：初始化为 0，由 getNextQuestion 的后端 summary 实时更新
+  function calcTodayMaxStars(): number {
+    if (!API_CONFIG.USE_MOCK) return 0
     const enQuestions = mockQuestions.filter((q) => q.subject === 'en')
     const maQuestions = mockQuestions.filter((q) => q.subject === 'ma')
     const enTarget = dailyTasks.value?.enTarget || 5
     const maTarget = dailyTasks.value?.maTarget || 3
-    const enReward = enQuestions
-      .slice(0, enTarget)
-      .reduce((sum, q) => sum + (q.reward?.stars || 0), 0)
-    const maReward = maQuestions
-      .slice(0, maTarget)
-      .reduce((sum, q) => sum + (q.reward?.stars || 0), 0)
+    const enReward = enQuestions.slice(0, enTarget).reduce((sum, q) => sum + (q.reward?.stars || 0), 0)
+    const maReward = maQuestions.slice(0, maTarget).reduce((sum, q) => sum + (q.reward?.stars || 0), 0)
     return enReward + maReward
   }
   const todayMaxStars = ref<number>(calcTodayMaxStars())
@@ -186,6 +185,7 @@ export const useAppStore = defineStore('app', () => {
       maDone: 0,
     }
     todayStars.value = loadTodayStars()
+    todayMaxStars.value = calcTodayMaxStars()
   }
 
   function consumeNextQuestionIndex() {
@@ -261,16 +261,19 @@ export const useAppStore = defineStore('app', () => {
     }
     achievementState.value.todayTotal += 1
 
-    if (question.subject === 'en') {
-      dailyTasks.value.enDone = Math.min(
-        dailyTasks.value.enTarget,
-        dailyTasks.value.enDone + 1
-      )
-    } else {
-      dailyTasks.value.maDone = Math.min(
-        dailyTasks.value.maTarget,
-        dailyTasks.value.maDone + 1
-      )
+    // Real 模式下 dailyTasks 由后端 summary 同步，不在此增量更新
+    if (API_CONFIG.USE_MOCK) {
+      if (question.subject === 'en') {
+        dailyTasks.value.enDone = Math.min(
+          dailyTasks.value.enTarget,
+          dailyTasks.value.enDone + 1
+        )
+      } else {
+        dailyTasks.value.maDone = Math.min(
+          dailyTasks.value.maTarget,
+          dailyTasks.value.maDone + 1
+        )
+      }
     }
 
     if (isCorrect) {
@@ -384,11 +387,21 @@ export const useAppStore = defineStore('app', () => {
       stats: petState.value.stats,
       emotion: petState.value.emotion,
     })
-    petState.value.evolutionIndex = resp.evolutionIndex
-    petState.value.stats = resp.stats
-    petState.value.emotion = resp.emotion
-    petEvolutions.value = resp.evolutions
-    petFoodItems.value = resp.foodItems
+
+    // 后端 PetStateDTO 字段映射：单值 happiness/hunger → 前端 stats 数组
+    const stats: { label: string; value: number; color: string }[] = [
+      { label: '饱食', value: (resp as any).hunger ?? 50, color: '#66BB6A' },
+      { label: '快乐', value: (resp as any).happiness ?? 80, color: '#29B6F6' },
+      { label: '聪明', value: (resp as any).xp ?? 0, color: '#CE93D8' },
+    ]
+
+    petState.value = {
+      evolutionIndex: ((resp as any).evolutionId ?? 1) - 1, // 后端 evolutionId 是 1-based，转为 0-based
+      stats,
+      emotion: (resp as any).emotion ?? 'idle',
+    }
+
+    // evolutions 和 foodItems 是客户端常量，无需从后端同步
   }
 
   async function syncCalendar(childId: string, year: number, month: number) {
@@ -428,7 +441,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function setPetEvolution(index: number) {
-    if (index <= petState.value.evolutionIndex) {
+    if (index >= petState.value.evolutionIndex) {
       petState.value.evolutionIndex = index
     }
   }

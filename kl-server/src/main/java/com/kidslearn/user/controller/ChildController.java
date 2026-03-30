@@ -6,6 +6,7 @@ import com.kidslearn.user.domain.Child;
 import com.kidslearn.user.dto.*;
 import com.kidslearn.user.repository.ChildRepository;
 import com.kidslearn.user.service.AuthService;
+import com.kidslearn.user.service.ChildService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -20,6 +21,7 @@ public class ChildController {
 
     private final ChildRepository childRepository;
     private final AuthService authService;
+    private final ChildService childService;
 
     @PostMapping("/register")
     public ApiResponse<ChildDTO> register(@Valid @RequestBody RegisterChildRequest req,
@@ -45,5 +47,11 @@ public class ChildController {
     @GetMapping("/profile")
     public ApiResponse<CheckUserStatusResponse> checkProfileByDevice(@RequestParam String deviceId) {
         return ApiResponse.ok(authService.checkUserStatus(deviceId));
+    }
+
+    @PatchMapping("/{id}/grade")
+    public ApiResponse<Void> updateGrade(@PathVariable UUID id, @Valid @RequestBody UpdateChildGradeRequest req) {
+        childService.updateGrade(id, req.grade());
+        return ApiResponse.ok(null);
     }
 }

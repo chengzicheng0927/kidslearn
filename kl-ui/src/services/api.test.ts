@@ -19,6 +19,11 @@ describe('mock api service', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-19T09:00:00Z'))
     localStorage.clear()
+    // 强制启用 mock 模式，测试不依赖真实后端
+    // 必须在 Pinia 创建前设置，否则 calendarData 在 store 创建时就已为空
+    import('../config/api.config').then(({ API_CONFIG }) => {
+      ;(API_CONFIG as any).USE_MOCK = true
+    })
     setActivePinia(createPinia())
     clearStoredMockUser()
     useAppStore().resetMockState()
@@ -66,7 +71,7 @@ describe('mock api service', () => {
     await vi.runAllTimersAsync()
     const firstQuestion = await questionPromise
 
-    expect(firstQuestion?.correctAnswerId).toBe('q1-b')
+    expect(firstQuestion.question?.correctAnswerId).toBe('q1-b')
 
     const firstResultPromise = submitAnswer('q1', 'q1-b', 4)
     await vi.runAllTimersAsync()
@@ -77,7 +82,7 @@ describe('mock api service', () => {
 
     const secondQuestionPromise = getNextQuestion()
     await vi.runAllTimersAsync()
-    await expect(secondQuestionPromise).resolves.toMatchObject({ id: 'q2' })
+    await expect(secondQuestionPromise).resolves.toMatchObject({ question: { id: 'q2' } })
 
     const resultPromise = submitAnswer('q2', 'q2-d', 5)
     await vi.runAllTimersAsync()
@@ -154,12 +159,12 @@ describe('mock api service', () => {
     resetQuestions()
     const mathQuestionPromise = getNextQuestion('ma')
     await vi.runAllTimersAsync()
-    await expect(mathQuestionPromise).resolves.toMatchObject({ id: 'q4' })
+    await expect(mathQuestionPromise).resolves.toMatchObject({ question: { id: 'q4' } })
 
     // 新的实现使用全局索引，每次调用递增，
     // 第二次调用返回 questionBank['ma'][1]，即 q16
     const secondMathQuestionPromise = getNextQuestion('ma')
     await vi.runAllTimersAsync()
-    await expect(secondMathQuestionPromise).resolves.toMatchObject({ id: 'q16' })
+    await expect(secondMathQuestionPromise).resolves.toMatchObject({ question: { id: 'q16' } })
   })
 })

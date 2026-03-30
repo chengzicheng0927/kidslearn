@@ -1,125 +1,52 @@
-# 🚀 Spring Boot 3.x + JDK 21 开发规约
+# KidsLearn 儿童学习平台
 
-> **核心目标**：确保在日均 1 亿条短信的高并发场景下，代码具备极致的性能、可观测性和一致性。
+> AI 驱动的儿童学习平台，支持英语、数学科目学习，配套宠物养成、成就系统。
+
+**最后更新**：2026-03-25
 
 ---
 
-## 1. JDK 21 现代化语法重塑 (Modernity Score: 30%)
+## 读取说明
 
-* **虚拟线程 (Virtual Threads)**：
-    * 必须在 `application.yml` 开启 `spring.threads.virtual.enabled: true`。
-    * 禁止手动创建 `FixedThreadPool`。
-    * 禁止在虚拟线程中长时间持有 `synchronized` 锁，优先使用 `ReentrantLock`。
-* **模式匹配 (Pattern Matching)**：
-    * 禁止显式强转，必须使用 `if (obj instanceof String s)`。
-    * 复杂分支必须使用 `switch` 表达式并具备 `yield` 返回值。
-* **数据载体**：
-    * 所有的 DTO、VO、Event 必须声明为 `record`。
-    * 状态机必须使用 `sealed interface` 配合 `permits`。
+| 场景 | 读取哪个 CLAUDE.md |
+|------|------------------|
+| 在根目录打开会话 | 本文件（项目概览 + 开发流程） |
+| 在 `ios/` 打开 | `ios/CLAUDE.md` |
+| 在 `kl-ui/` 打开 | `kl-ui/CLAUDE.md` |
+| 在 `kl-server/` 打开 | `kl-server/CLAUDE.md` |
 
-## 2. Spring Boot 3.x 工程治理 (Framework Score: 25%)
+---
 
-* **声明式客户端**：
-    * 新功能研发必须使用 `RestClient`。
-    * 存量代码维护允许沿用旧有模式以降低迁移成本。
-* **异常处理 (RFC 7807)**：
-    * 必须开启 `spring.mvc.problemdetails.enabled: true`。
-    * 禁止返回自定义 `Result<T>` 类，统一使用 `ProblemDetail`。
-* **可观测性**：
-    * 关键步骤必须注入 `ObservationRegistry` 进行埋点。
-    * 日志必须包含 `trace_id` 和 `span_id`。
+## 技术栈
 
-## 3. 架构约束与防御性编程 (Architecture Score: 25%)
+| 模块 | 技术 | 说明 |
+|------|------|------|
+| iOS | Swift + SwiftUI | 原生 App，WebView 嵌套 H5 |
+| 前端 | Vue 3 + TypeScript | H5 页面，iOS WebView 加载 |
+| 后端 | Spring Boot 3.x + JDK 21 | REST API 服务 |
 
-* **函数式编程**：集合处理必须使用 `Stream API`，禁止传统 `for` 循环处理大规模数据转换。
-* **校验与配置**：
-    * Controller 入参必须包含 `jakarta.validation` 注解。
-    * 简单配置项（如超时、开关）允许使用 `@Value`。复杂对象或具备逻辑关联的配置必须使用 `@ConfigurationProperties`。
+---
 
-## 4. 性能与健壮性 (Efficiency Score: 20%)
+## 目录结构
 
-* **非阻塞边界**：Netty EventLoop 中严禁任何阻塞操作。
-* **异步转换**：必须使用 `CompletableFuture` 或 JDK 21 结构化并发。
-* **日志规范**：
-    * 严禁 `e.printStackTrace()`。
-    * 日志必须包含业务上下文（如：`log.error("SMS_SEND_FAIL | Mobile: {} | Reason: {}", mobile, e.getMessage())`）。
-
-
-## 🔵 前端规范：Vue 3 + TS + Tailwind
-
-### 1. 组合式 API (Composition API)
-* **语法糖**：必须使用 `<script setup>`，禁止使用 Options API。
-* **响应式**：优先使用 `ref()`，仅在深层嵌套对象时使用 `reactive()`。
-* **逻辑拆分**：超过 30 行的非 UI 逻辑必须抽取到 `composables/` 目录。
-
-### 2. 类型与通信 (Types & Props)
-* **强类型**：尽量避免 `any`，必要时用 `unknown` 替代。所有 API 响应必须定义 `interface`。
-* **组件通信**：Props 必须使用 TypeScript 接口定义，并配合 `withDefaults`。
-* **状态管理**：必须使用 Pinia 的 Setup Store 风格，禁止使用 Vuex。
-
-### 3. UI 与性能 (UI & Performance)
-* **样式方案**：必须优先使用 Tailwind CSS 类名，禁止写冗余的 `<style scoped>`。
-* **长列表渲染**：处理海量短信流水统计时（数据量超过 1000 行），建议使用虚拟滚动技术。
-
-### 4. 安全区域 (Safe Area) 与刘海适配
-iOS 原生通过 Swift 直接设置 `document.getElementById('app').style.paddingTop` 来适配刘海高度，前端**不需要额外处理 safe-area padding**。
-
-**刘海区域颜色**：各页面通过 JS `document.body.style.background` 控制，需要在 `onMounted` 设置、`onUnmounted` 重置。
-
-```javascript
-onMounted(() => {
-  document.body.style.background = '<页面背景色>'
-})
-
-onUnmounted(() => {
-  document.body.style.background = ''
-})
+```
+kid-learning/
+├── ios/                  # iOS 原生项目（Swift）
+├── kl-ui/                # 前端 H5 项目（Vue 3 + TS）
+├── kl-server/            # 后端服务（Spring Boot 3.x）
+├── docs/                 # 任务计划文档（跨模块功能开发）
+├── plan/                 # 项目整体规划、架构设计文档
+├── html-sample/          # 参考示例页面
+├── ui-design/            # UI 设计稿
+└── pencil/               # Pencil 设计文件
 ```
 
-| 页面 | 刘海/安全区背景色 |
-|------|------------------|
-| 聊天页（英语） | `linear-gradient(160deg, #E3F2FD 0%, #BBDEFB 40%, #FFF8F3 100%)` |
-| 聊天页（数学） | `linear-gradient(160deg, #E8F5E9 0%, #C8E6C9 40%, #FFF8F3 100%)` |
-| 日历页 | `#FFF8F3` |
-| 宠物页 | `#FFF8F3` |
-| 引导页 | `var(--bg)` |
-| 家长页 | `linear-gradient(135deg, #7c6df8, #9d8df8)` |
+### docs/ vs plan/ 区别
 
----
-
-## 🤖 AI 自动化审计指令
-
-1. **质量评分**：完成代码后，请根据上述规约进行 0-100 评分。
-2. **压力测试**：涉及高并发逻辑时，AI 必须生成基于虚拟线程的压测类，监控 GC 频率。
-3. **一致性检查**：确保前端 API 定义与后端 Record 结构完全对齐。
-
----
-
-## 📋 前端开发核心规约
-
-### 前端只做展示，数据由后端返回
-
-> **所有业务数据和状态必须从后端接口获取，前端仅负责展示和用户交互。任何计算逻辑（如统计、进度、奖励判定）一律由后端处理。**
-
-| 场景 | 前端职责 | 后端职责 |
-|------|---------|---------|
-| 用户答题 | 提交答案，渲染结果 | 判定对错、计算奖励、更新进度 |
-| 答题结果弹窗 | 展示后端返回的 stars/xp/combo | 累计积分、触发徽章、计算连击 |
-| 宠物进化 | 展示后端返回的进化状态 | 判断进化条件、更新进化阶段 |
-| 知识星球徽章 | 展示后端返回的徽章列表和进度 | 计算答题数、判定解锁、解锁时间 |
-| 每日任务 | 展示后端返回的目标和进度 | 设置目标、判定完成、发放奖励 |
-| 日历打卡 | 展示后端返回的打卡数据 | 记录学习数据、生成热力图 |
-| 成就系统 | 展示后端返回的成就列表 | 判定成就条件、记录解锁时间 |
-| 家长控制 | 展示后端返回的配置项 | 存储设置、执行限制逻辑 |
-
-**为什么这样设计？**
-1. **防篡改**：前端数据可以被修改（用户可改 JS），业务逻辑必须放后端
-2. **一致性**：多端（iOS/Android/H5）保持数据同步
-3. **性能**：复杂计算在服务端完成，减轻客户端负担
-
-**例外情况**：
-- UI 层面的纯展示状态（如动画触发、加载中）可以使用前端 state
-- Mock 数据仅用于开发调试，产品上线前必须对接真实接口
+| 目录 | 内容 | 时机 |
+|------|------|------|
+| `docs/` | 任务执行计划、功能开发步骤 | 开始一个功能开发时创建 |
+| `plan/` | 整体架构设计、技术选型 | 项目初期或重构时创建 |
 
 ---
 
@@ -132,39 +59,95 @@ onUnmounted(() => {
 ```
 
 例如：
-- `前端开发规约-20260325.md`
+- `前端主聊天界面优化计划-20260325.md`
 - `家长模式开发计划-20260325.md`
-- `API完善与去Mock化开发计划-20260325.md`
 
 每次会话结束前用当天日期重命名文档再提交。
 
 ---
 
-## gstack
+## ⚙️ 开发流程（强制执行）
 
-使用 gstack 的 /browse skill 进行所有网页浏览。禁止使用 `mcp__claude-in-chrome__*` 工具。
+> **每个任务必须按以下步骤执行，禁止跳过步骤或口头承诺不执行。**
 
-**可用技能**：
-- `/office-hours` - YC Office Hours，产品构思头脑风暴
-- `/plan-ceo-review` - CEO/创始人视角审视计划
-- `/plan-eng-review` - 工程技术评审，架构和数据流
-- `/plan-design-review` - 设计评审，评分每个设计维度
-- `/design-consultation` - 构建设计系统
-- `/review` - 代码审查，发现生产环境 bug
-- `/investigate` - 系统性根因调试
-- `/design-review` - 设计+代码修复
-- `/qa` - QA 测试，真实浏览器点击测试
-- `/qa-only` - QA 报告（仅报告，不修改代码）
-- `/ship` - 发布工程师，同步测试推送 PR
-- `/document-release` - 技术文档更新
-- `/retro` - 团队周回顾
-- `/browse` - QA 工程师，真实 Chromium 浏览器
-- `/setup-browser-cookies` - 导入浏览器 Cookie 测试认证页面
-- `/codex` - OpenAI Codex 第二意见
-- `/careful` - 安全护栏，警告破坏性命令
-- `/freeze` - 编辑锁，限制文件修改范围
-- `/guard` - 完全安全模式（/careful + /freeze）
-- `/unfreeze` - 解除编辑锁
-- `/gstack-upgrade` - 自升级
+### Step 1：确认需求范围
 
-如果 gstack 技能不工作，运行 `cd .claude/skills/gstack && ./setup` 构建二进制文件并注册技能。
+- 明确功能的**用户故事**（谁用、做什么、得到什么）
+- 明确**边界**：哪些做、哪些不做
+- 明确**验收标准**：怎么算完成
+- 产出：需求文档或需求列表
+
+### Step 2：任务拆解
+
+- 将需求拆解为**原子任务**
+- 每个任务对应**一个代码改动**
+- 识别跨模块任务（iOS/前端/后端）
+- 产出：任务清单
+
+### Step 3：制定执行计划
+
+- 确定**优先级**（P0/P1/P2）
+- 估算**周期**（简单/中等/复杂）
+- 确认**依赖关系**（谁先做、谁后做）
+- 产出：排好序的任务列表
+
+### Step 4：Skill 检查
+
+- 针对每个任务，检查是否有适用的 Skill
+- Skill 可以提升效率，但不能替代判断
+- 可用 Skill：`/design-review` `/qa` `/review` `/investigate` 等
+
+### Step 5：执行
+
+- 按优先级顺序执行任务
+- 每执行一个任务，物理创建/修改代码文件
+- 不能口头说"可以这样做"而不写代码
+
+### Step 6：测试验证
+
+- 每个功能必须**物理执行测试**
+- 不能说"测试通过"而不运行
+- 使用 `/qa` 进行真实浏览器测试
+- 或执行单元测试/集成测试
+
+### 执行检查清单
+
+```
+[ ] 需求范围已确认
+[ ] 任务已拆解并排序
+[ ] 每个任务有明确的产出文件
+[ ] 已选择合适的 Skill 辅助
+[ ] 代码已物理写入文件
+[ ] 测试已物理执行并通过
+[ ] 任务状态已更新为已完成
+```
+
+### 任务状态管理
+
+- 使用 `TaskCreate` 创建任务，记录任务 ID
+- 使用 `TaskUpdate` 更新状态：`in_progress` → `completed`
+- 测试通过后，立即更新任务状态
+- 在任务计划文档中同步标记完成状态
+
+**状态流转**：
+
+```
+pending → in_progress → completed
+                    ↘ blocked（遇阻）→ 解决后恢复 in_progress
+```
+
+**更新时机**：
+- 测试通过后 → `TaskUpdate({ status: 'completed' })`
+- 遇到阻塞 → `TaskUpdate({ status: 'blocked', metadata: { reason: '...' } })`
+
+---
+
+## 开发规范
+
+各模块开发规范详见对应目录：
+
+| 模块 | 规范文件 |
+|------|---------|
+| iOS | `ios/CLAUDE.md` |
+| 前端 | `kl-ui/CLAUDE.md` |
+| 后端 | `kl-server/CLAUDE.md` |

@@ -13,7 +13,6 @@ import com.kidslearn.user.repository.ChildRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,22 +36,72 @@ public class QuizService {
     private final AppProperties appProperties;
 
     /**
-     * 获取下一道题
+     * 获取下一道题。
+     * - 只取 scheduledDate = today 的题目
+     * - 无论有无题目，都返回 QuizNextResponse（包含今日总结供前端展示）
      */
     @Transactional(readOnly = true)
-    public QuestionDTO getNextQuestion(QuizNextRequest req, UUID childId) {
+    public QuizNextResponse getNextQuestion(QuizNextRequest req, UUID childId) {
         String subject = req.subject() != null ? req.subject() : "en";
+        LocalDate today = LocalDate.now();
 
-        List<Question> questions = questionRepository.findUnansweredRandomBySubject(
-            subject, childId, PageRequest.of(0, 1)
+        // 查询今日未答的题目（按计划日期分配）
+        List<Question> questions = questionRepository.findUnansweredByScheduledDate(
+            subject, today, childId
         );
 
+        // 构建今日总结
+        QuizSummaryDTO summary = buildQuizSummary(childId, today);
+
         if (questions.isEmpty()) {
-            return null; // Return empty business state instead of 404
+            return new QuizNextResponse.NoMoreQuestions(summary);
         }
 
         Question q = questions.getFirst();
-        return toQuestionDTO(q);
+        return new QuizNextResponse.HasQuestion(toQuestionDTO(q), summary);
+    }
+
+    /**
+     * 构建今日答题总结。
+     * - todayTotal = 今日安排的题目总数
+     * - todayDone = 今日已答题目数
+     * - todayMaxStars = 今日全部题目满分（逐题累加星星数）
+     * - todayStarsEarned = 今日已获得星星
+     * - hasMore = 是否还有未答的题
+     *
+     * TODO: 性能优化 - 预计算方案
+     * 当前实现每次调用都会查询 Question 表计算今日题目数和满分星星，调用频繁时性能开销较大。
+     * 建议改为每日凌晨4点（或其他低峰时段）预计算并缓存到 Redis：
+     *   - 每日凌晨4点定时任务计算"明日题目数"和"明日满分星星"
+     *   - 存入 Redis，key 如 "daily_quiz:summary:{childId}:{date}"
+     *   - getNextQuestion 时直接从缓存读取，仅在缓存未命中时回源查询
+     * 这样可大幅减少数据库查询，提升响应速度。
+     */
+    private QuizSummaryDTO buildQuizSummary(UUID childId, LocalDate today) {
+        var quizConfig = appProperties.quiz();
+
+        // 今日所有安排的题目
+        List<Question> todayQuestions = questionRepository.findAllByScheduledDate(today);
+        int todayTotal = todayQuestions.size();
+
+        // 计算今日全部题目的满分星星（逐题累加）
+        int todayMaxStars = todayQuestions.stream().mapToInt(q -> {
+            if ("reward".equals(q.getSuccessResultMode())) {
+                return quizConfig.rewardStars();
+            }
+            return quizConfig.baseStars();
+        }).sum();
+
+        // 今日各科已答情况（从 StudyRecord 汇总）
+        List<StudyRecord> todayRecords = studyRecordRepository.findByChildIdAndRecordDate(childId, today);
+        int todayDone = todayRecords.stream().mapToInt(StudyRecord::getQuestionCount).sum();
+        int todayStarsEarned = todayRecords.stream().mapToInt(StudyRecord::getStarsEarned).sum();
+
+        boolean hasMore = todayDone < todayTotal;
+
+        Child child = childRepository.findById(childId).orElseThrow();
+        return new QuizSummaryDTO(hasMore, todayTotal, todayMaxStars, todayDone, todayStarsEarned,
+                child.getDailyTargetEn(), child.getDailyTargetMa());
     }
 
     /**
@@ -131,7 +180,7 @@ public class QuizService {
 
         // 11. 发布领域事件
         eventPublisher.publishEvent(new AnswerSubmittedEvent(
-            childId, session.getId(), q.getId(), isCorrect,
+            childId, session.getId(), q.getId(), req.planQuestionId(), req.answerId(), isCorrect,
             session.getCurrentCombo(), q.getSubject(), q.getTopicKey(), Instant.now()
         ));
 
@@ -147,6 +196,10 @@ public class QuizService {
         log.info("QUIZ_SUBMIT | childId={} | questionId={} | correct={} | combo={} | resultMode={}",
             childId, req.questionId(), isCorrect, session.getCurrentCombo(), resultMode);
 
+        // 获取今日总结（包含真实 todayMaxStars）
+        LocalDate today = LocalDate.now();
+        QuizSummaryDTO summary = buildQuizSummary(childId, today);
+
         return new QuizSubmitResponse(
             isCorrect, resultMode, q.getCorrectAnswerId(),
             q.getExplanation(),
@@ -155,7 +208,7 @@ public class QuizService {
             showResult, true,
             new QuizSubmitResponse.ResultDTO(
                 session.getCurrentCombo(), accuracy, req.timeSpent(),
-                stars, quizConfig.dailyStarsLimit(),
+                stars, summary.todayMaxStars(),
                 xp, child.getXpNeeded(), child.getLevel(), badge
             )
         );

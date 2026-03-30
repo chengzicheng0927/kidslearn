@@ -66,7 +66,7 @@ export interface VerifyPasswordResponse {
  * 【生产环境】后端 AI Agent 生成计划
  */
 
-// GET /api/parent/plans
+// GET /api/parent/plan/plans
 export interface GetParentPlansRequest extends EmptyRequest {}
 export interface GetParentPlansResponse {
   plans: import('../types/parent').LearningPlan[]
@@ -128,6 +128,41 @@ export interface CancelPlanResponse {
   success: boolean
 }
 
+// GET /api/parent/plan/{planId}
+export interface PlanDetailResponse {
+  id: string
+  subject: 'en' | 'ma'
+  status: 'pending' | 'active' | 'paused' | 'completed' | 'cancelled'
+  difficulty: 'easy' | 'medium' | 'hard'
+  durationDays: number
+  dailyGoal: string
+  phases: PlanPhaseDetail[]
+  estimatedMinutes: number
+  startedAt: string | null
+  completedAt: string | null
+  totalCompleted: number
+  totalCorrect: number
+  accuracy: number
+}
+
+export interface PlanPhaseDetail {
+  phaseIndex: number
+  dayRange: string
+  goal: string
+  topic: string
+  questionsPerDay: number
+  difficulty: 'easy' | 'medium' | 'hard'
+  questions: QuestionDetail[]
+}
+
+export interface QuestionDetail {
+  id: string
+  icon: string
+  question: string
+  options: string[]
+  answer: string | null
+}
+
 // DELETE /api/parent/plan/{planId}
 // 【额外】删除某个计划（PRD 未包含，补充）
 export interface DeletePlanRequest {
@@ -153,11 +188,21 @@ export interface DeletePlanResponse {
 export interface ParentChatRequest {
   message: string     // 家长输入的自然语言
   planId?: string     // 当前关联的计划ID（如果有）
+  conversationId?: string  // 对话ID（用于多轮对话，支持生成计划和生成题目分离）
   context?: {
     childId?: string  // 孩子ID（用于 AI 生成个性化计划）
     childAge?: number // 孩子年龄
     subject?: 'en' | 'ma'  // 偏好学科
   }
+}
+
+/**
+ * 题目生成请求
+ * 用于用户确认计划后，生成题目的接口
+ */
+export interface GenerateQuestionsRequest {
+  planId: string       // 学习计划ID
+  conversationId?: string  // 对话ID
 }
 
 /**
@@ -194,6 +239,16 @@ export interface ParentChatResponse {
   plan?: import('../types/parent').LearningPlan
   planAction?: 'confirm' | 'adjust' | 'cancel'
   thinking?: boolean
+  conversationId?: string  // 对话ID（用于后续生成题目）
+  needsQuestionGeneration?: boolean  // 是否需要生成题目（plan阶段）
+}
+
+// POST /api/parent/chat/generate-questions
+// 用户确认计划后，生成题目的接口
+export interface GenerateQuestionsResponse {
+  plan: import('../types/parent').LearningPlan
+  card: ChatCard
+  reply: string
 }
 
 // POST /api/parent/chat/stream
@@ -202,6 +257,7 @@ export interface ParentChatResponse {
 export interface ParentChatStreamRequest {
   message: string
   planId?: string
+  conversationId?: string
   context?: {
     childId?: string
     childAge?: number
@@ -522,16 +578,33 @@ export interface QuizNextRequest {
   subject?: 'en' | 'ma'  // 学科筛选，不传则返回全部
   planId?: string        // 学习计划ID（计划模式必传）
 }
+
+/** 今日答题总结 */
+export interface QuizSummaryDTO {
+  hasMore: boolean       // 今日是否还有更多题目
+  todayTotal: number     // 今日总题目数（计划目标）
+  todayMaxStars: number  // 今日最高可获得星星数（计划目标）
+  todayDone: number      // 今日已答题数
+  todayStarsEarned: number // 今日已获得星星
+  todayTargetEn: number  // 英语今日目标题数
+  todayTargetMa: number  // 数学今日目标题数
+}
+
+/**
+ * 获取下一题的响应。
+ * - HasQuestion: 有题目时返回（question + summary）
+ * - NoMoreQuestions: 无更多题目时返回（summary）
+ */
 export interface QuizNextResponse {
-  id: string
-  planQuestionId?: string  // 计划题目关联ID（计划模式返回）
-  purpose?: 'practice' | 'bridge' | 'challenge'  // 题目用途（计划模式返回）
-  subject: 'en' | 'ma'
-  label: string
-  question: string
-  options: { id: string; text: string }[]
-  correctAnswerId: string
-  estimatedMinutes: number
+  question?: {
+    id: string
+    subject: 'en' | 'ma'
+    label: string
+    question: string
+    options: { id: string; text: string }[]
+    estimatedMinutes: number
+  }
+  summary: QuizSummaryDTO
 }
 
 // POST /api/quiz/submit

@@ -14,31 +14,52 @@ const emit = defineEmits<{
 const store = useAppStore()
 const { dailyTasks, todayStars, todayMaxStars } = storeToRefs(store)
 
+// 当天没有任何任务（后端返回 todayMaxStars === 0）
+const hasNoTasks = computed(() => todayMaxStars.value === 0)
+
 const R = 20
 const CIRC = 2 * Math.PI * R
 
 const enPct = computed(() => {
   const target = dailyTasks.value?.enTarget || 5
-  const done = dailyTasks.value?.enDone || 0
-  return Math.min(100, (done / target) * 100)
+  if (target === 0) return 100
+  return Math.min(100, ((dailyTasks.value?.enDone || 0) / target) * 100)
 })
 const maPct = computed(() => {
   const target = dailyTasks.value?.maTarget || 3
-  const done = dailyTasks.value?.maDone || 0
-  return Math.min(100, (done / target) * 100)
+  if (target === 0) return 100
+  return Math.min(100, ((dailyTasks.value?.maDone || 0) / target) * 100)
 })
-const enDone = computed(() => (dailyTasks.value?.enDone || 0) >= (dailyTasks.value?.enTarget || 5))
-const maDone = computed(() => (dailyTasks.value?.maDone || 0) >= (dailyTasks.value?.maTarget || 3))
+const enDone = computed(() => {
+  const target = dailyTasks.value?.enTarget || 5
+  return target === 0 || (dailyTasks.value?.enDone || 0) >= target
+})
+const maDone = computed(() => {
+  const target = dailyTasks.value?.maTarget || 3
+  return target === 0 || (dailyTasks.value?.maDone || 0) >= target
+})
 const allDone = computed(() => enDone.value && maDone.value)
 
 const totalDone = computed(() => (dailyTasks.value?.enDone || 0) + (dailyTasks.value?.maDone || 0))
-const totalTarget = computed(() => (dailyTasks.value?.enTarget || 5) + (dailyTasks.value?.maTarget || 3))
+const totalTarget = computed(() => Math.max(1, (dailyTasks.value?.enTarget || 5) + (dailyTasks.value?.maTarget || 3)))
 const stageNum = computed(() => Math.ceil(totalDone.value / 2) || 1)
 </script>
 
 <template>
   <div class="dtc">
-    <div v-if="allDone" class="all-done">
+    <!-- 当天无任务 -->
+    <div v-if="hasNoTasks" class="no-task-area">
+      <div class="no-task-top">
+        <span class="no-task-icon">🌟</span>
+        <span class="no-task-title">今日休息</span>
+        <span class="no-task-icon">🌟</span>
+      </div>
+      <div class="no-task-msg">今天没有学习任务</div>
+      <div class="no-task-sub">好好休息，养足精神，明天继续加油！</div>
+    </div>
+
+    <!-- 全部完成 -->
+    <div v-else-if="allDone" class="all-done">
       <span>🎉</span>
       <span>今日任务全部完成！太棒啦！</span>
       <span>🎉</span>
@@ -147,8 +168,44 @@ const stageNum = computed(() => Math.ceil(totalDone.value / 2) || 1)
   gap: 8px;
   font-size: 13px;
   font-weight: 700;
-  color: #27AE60;
+  color: #7A9FD4;
   padding: 4px 0;
+}
+
+.no-task-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.no-task-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.no-task-icon {
+  font-size: 16px;
+}
+
+.no-task-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #7A9FD4;
+}
+
+.no-task-msg {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--txt);
+  margin-top: 4px;
+}
+
+.no-task-sub {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .top-bar {

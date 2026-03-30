@@ -14,6 +14,10 @@ public class ToolRegistry {
 
     private final Map<String, JsonTool> tools = new ConcurrentHashMap<>();
 
+    public ToolRegistry(List<JsonTool> jsonTools) {
+        jsonTools.forEach(this::register);
+    }
+
     public void register(JsonTool tool) {
         tools.put(tool.name(), tool);
         log.info("TOOL_REGISTERED | name={}", tool.name());

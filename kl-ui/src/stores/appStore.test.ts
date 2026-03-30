@@ -3,6 +3,11 @@ import { createPinia, setActivePinia } from 'pinia'
 import { getSelectedStudyDay, useAppStore } from './appStore'
 import { mockChildData, mockPetFoodItems, mockQuestions } from '../mock/data'
 
+vi.mock('../config/api.config', () => ({
+  API_CONFIG: { USE_MOCK: true, API_BASE_URL: 'http://localhost:8080', TIMEOUT: 30000, DEBUG: false },
+  getApiMode: () => 'mock' as const,
+}))
+
 vi.mock('../services/api', () => ({
   feedPet: vi.fn().mockResolvedValue({ success: true, newStars: 276, newStats: [
     { label: '饱食度', value: 80, color: '#4CAF50' },
@@ -59,11 +64,13 @@ describe('useAppStore', () => {
   it('handles evolution bounds and selected day lookup', () => {
     const store = useAppStore()
 
+    // 初始为 2；setPetEvolution(1) < 2，无效，保持 2
     store.setPetEvolution(1)
-    expect(store.petState.evolutionIndex).toBe(1)
+    expect(store.petState.evolutionIndex).toBe(2)
 
+    // setPetEvolution(4) >= 2，有效，设为 4
     store.setPetEvolution(4)
-    expect(store.petState.evolutionIndex).toBe(1)
+    expect(store.petState.evolutionIndex).toBe(4)
 
     expect(store.childStars).toBe(mockChildData.stars)
     expect(store.childStreak).toBe(mockChildData.streak)

@@ -137,7 +137,7 @@ class BadgeServiceTest {
         when(badgeRepository.existsByChildIdAndBadgeId(childId, "badge-bronze")).thenReturn(false);
 
         AnswerSubmittedEvent event = new AnswerSubmittedEvent(
-                childId, UUID.randomUUID(), UUID.randomUUID(),
+                childId, UUID.randomUUID(), UUID.randomUUID(), null, "a",
                 true, 1, "en", "animals", Instant.now()
         );
 
@@ -157,7 +157,7 @@ class BadgeServiceTest {
         // given - no stubs needed since method returns early when isCorrect is false
 
         AnswerSubmittedEvent event = new AnswerSubmittedEvent(
-                childId, UUID.randomUUID(), UUID.randomUUID(),
+                childId, UUID.randomUUID(), UUID.randomUUID(), null, "b",
                 false, 0, "en", "animals", Instant.now()
         );
 
@@ -181,7 +181,7 @@ class BadgeServiceTest {
         when(badgeRepository.existsByChildIdAndBadgeId(childId, "badge-bronze")).thenReturn(true);
 
         AnswerSubmittedEvent event = new AnswerSubmittedEvent(
-                childId, UUID.randomUUID(), UUID.randomUUID(),
+                childId, UUID.randomUUID(), UUID.randomUUID(), null, "a",
                 true, 1, "en", "animals", Instant.now()
         );
 
@@ -209,7 +209,7 @@ class BadgeServiceTest {
         when(badgeRepository.existsByChildIdAndBadgeId(any(), any())).thenReturn(false);
 
         AnswerSubmittedEvent event = new AnswerSubmittedEvent(
-                childId, UUID.randomUUID(), UUID.randomUUID(),
+                childId, UUID.randomUUID(), UUID.randomUUID(), null, "a",
                 true, 0, "en", "animals", Instant.now()
         );
 

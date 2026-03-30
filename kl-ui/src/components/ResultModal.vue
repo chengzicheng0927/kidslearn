@@ -181,6 +181,13 @@ const confettiColors = ['#FFD54F', '#FF8A65', '#4FC3F7', '#81C784', '#BA68C8', '
             <div class="xp-fill" :style="{ width: `${Math.min(100, (xp / Math.max(1, xpNeeded)) * 100)}%` }"></div>
           </div>
         </div>
+
+        <!-- Reward Badge -->
+        <div v-if="isReward && rewardTitle" class="reward-badge">
+          <span class="reward-badge-icon">{{ rewardIcon || '🏅' }}</span>
+          <span class="reward-badge-title">{{ rewardTitle }}</span>
+          <span v-if="rewardSub" class="reward-badge-sub">{{ rewardSub }}</span>
+        </div>
       </div>
 
       <!-- Wrong State -->
@@ -542,5 +549,35 @@ const confettiColors = ['#FFD54F', '#FF8A65', '#4FC3F7', '#81C784', '#BA68C8', '
 .result-action-btn.is-wrong:active {
   transform: scale(.97);
   background: #FFBB99;
+}
+
+/* Reward Badge */
+.reward-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #FFF9C4, #FFF59D);
+  border-radius: 14px;
+  border: 2px solid #FFD54F;
+  margin-top: 12px;
+}
+
+.reward-badge-icon {
+  font-size: 32px;
+}
+
+.reward-badge-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #8B6914;
+  text-align: center;
+}
+
+.reward-badge-sub {
+  font-size: 12px;
+  color: #9E7E00;
+  text-align: center;
 }
 </style>

@@ -16,5 +16,6 @@ public record ChildDTO(
     int totalAnswered,
     int totalDays,
     int dailyTargetEn,
-    int dailyTargetMa
+    int dailyTargetMa,
+    String grade
 ) {}

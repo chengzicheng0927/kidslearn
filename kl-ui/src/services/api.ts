@@ -29,6 +29,8 @@ import type {
   CancelPlanRequest, CancelPlanResponse,
   // 聊天相关
   ParentChatRequest, ParentChatResponse,
+  GenerateQuestionsRequest, GenerateQuestionsResponse,
+  PlanDetailResponse,
   // 设置相关
   UpdateParentSettingsRequest, UpdateParentSettingsResponse,
   GetParentSettingsResponse,
@@ -42,6 +44,7 @@ import type {
   QuizNextRequest, QuizNextResponse,
   QuizSubmitRequest, QuizSubmitResponse,
   QuizResetResponse,
+  QuizSummaryDTO,
 } from './api.interface'
 import type { LearningPlan, ParentMessage, PlanPhase } from '../types/parent'
 import type { Child, MockUser, ParentSettings, Question } from '../mock/data'
@@ -730,6 +733,50 @@ export async function getParentPlans(
 }
 
 /**
+ * 获取计划详情
+ * GET /api/parent/plan/{planId}
+ */
+export async function getPlanDetail(planId: string): Promise<PlanDetailResponse> {
+  if (API_CONFIG.USE_MOCK) {
+    await sleep(200)
+    // Mock 返回空数据
+    return {
+      id: planId,
+      subject: 'en',
+      status: 'completed',
+      difficulty: 'easy',
+      durationDays: 7,
+      dailyGoal: '每天5道英语题',
+      phases: [],
+      estimatedMinutes: 20,
+      startedAt: '2026-03-10',
+      completedAt: '2026-03-17',
+      totalCompleted: 35,
+      totalCorrect: 30,
+      accuracy: 85.7,
+    }
+  }
+
+  return request<PlanDetailResponse>(`/api/parent/plan/${planId}`)
+}
+
+/**
+ * 调整计划题目（删除指定题目）
+ * POST /api/parent/plan/{planId}/adjust-questions
+ */
+export async function removeQuestionFromPlan(planId: string, questionId: string): Promise<void> {
+  if (API_CONFIG.USE_MOCK) {
+    await sleep(200)
+    return
+  }
+
+  await request(`/api/parent/plan/${planId}/adjust-questions`, {
+    method: 'POST',
+    body: JSON.stringify({ removedQuestionIds: [questionId] }),
+  })
+}
+
+/**
  * 创建学习计划（AI 生成）
  * POST /api/parent/plan/create
  *
@@ -889,14 +936,15 @@ export async function cancelPlan(req: CancelPlanRequest): Promise<CancelPlanResp
  */
 export async function sendParentChat(
   message: string,
-  planId?: string
+  planId?: string,
+  conversationId?: string
 ): Promise<ParentMessage> {
   if (API_CONFIG.USE_MOCK) {
     const { mockSendParentChat } = await import('../mock/parentData')
-    return mockSendParentChat(message, planId)
+    return mockSendParentChat(message, planId, conversationId)
   }
 
-  const req: ParentChatRequest = { message, planId }
+  const req: ParentChatRequest = { message, planId, conversationId }
   const resp = await request<ParentChatResponse>('/api/parent/chat', {
     method: 'POST',
     body: JSON.stringify(req),
@@ -910,7 +958,35 @@ export async function sendParentChat(
     card: resp.card,
     plan: resp.plan,
     planAction: resp.planAction,
+    conversationId: resp.conversationId,
     timestamp: new Date().toISOString(),
+  }
+}
+
+/**
+ * 生成题目
+ * POST /api/parent/chat/generate-questions
+ *
+ * 用户确认计划后，调用此接口生成题目
+ */
+export async function generateQuestions(
+  planId: string,
+  conversationId?: string
+): Promise<{ plan: LearningPlan; card: import('../types/parent').ChatCard; reply: string }> {
+  if (API_CONFIG.USE_MOCK) {
+    const { mockGenerateQuestions } = await import('../mock/parentData')
+    return mockGenerateQuestions(planId)
+  }
+
+  const resp = await request<GenerateQuestionsResponse>('/api/parent/chat/generate-questions', {
+    method: 'POST',
+    body: JSON.stringify({ planId, conversationId }),
+  })
+
+  return {
+    plan: resp.plan,
+    card: resp.card,
+    reply: resp.reply,
   }
 }
 

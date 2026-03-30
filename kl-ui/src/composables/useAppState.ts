@@ -248,7 +248,7 @@ function feedPet(item: PetFoodItem): boolean {
 }
 
 function setPetEvolution(index: number) {
-  if (index <= petState.value.evolutionIndex) {
+  if (index >= petState.value.evolutionIndex) {
     petState.value.evolutionIndex = index
   }
 }

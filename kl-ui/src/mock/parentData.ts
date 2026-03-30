@@ -1,6 +1,6 @@
 // ========== 家长模式 Mock 数据 ==========
 
-import type { ChatCard, LearningPlan, ParentMessage, PlanPhase, PhaseDetail, QuestionDetail } from '../types/parent'
+import type { ChatCard, LearningPlan, ParentMessage, PlanPhase, QuestionDetail } from '../types/parent'
 
 export const mockParentPlans: LearningPlan[] = [
   {
@@ -81,7 +81,7 @@ function generatePhases(subject: 'en' | 'ma', duration: number): PlanPhase[] {
 }
 
 // 生成样题
-function generateSampleQuestions(subject: 'en' | 'ma', topic?: string, phaseIndex?: number): QuestionDetail[] {
+function generateSampleQuestions(subject: 'en' | 'ma', topic?: string, _phaseIndex?: number): QuestionDetail[] {
   if (subject === 'en') {
     const questionBanks: Record<string, QuestionDetail[]> = {
       '动物': [
@@ -149,8 +149,9 @@ function generateSampleQuestions(subject: 'en' | 'ma', topic?: string, phaseInde
 // 模拟发送家长聊天消息
 export async function mockSendParentChat(
   message: string,
-  _currentPlanId?: string
-): Promise<ParentMessage> {
+  _currentPlanId?: string,
+  _conversationId?: string
+): Promise<ParentMessage & { conversationId?: string; needsQuestionGeneration?: boolean }> {
   await new Promise((resolve) => setTimeout(resolve, 800 + Math.random() * 700))
 
   // 检测是否要生成计划
@@ -170,10 +171,13 @@ export async function mockSendParentChat(
 
     const reply = `好的，我来为孩子制定一个 ${plan.duration} 天的${plan.subject === 'en' ? '英语' : '数学'}学习计划。\n\n这个计划包含 ${plan.phases.length} 个阶段，每天大约 ${plan.estimatedMinutes} 分钟，适合当前年龄段的孩子。`
 
-    // 构建卡片配置
+    // 生成对话ID
+    const mockConvId = `conv-${Date.now()}`
+
+    // 构建卡片配置（第一步：不包含题目）
     const card: ChatCard = {
       style: 'plan',
-      title: '学习计划',
+      title: '学习计划预览',
       name: `${plan.duration}天${plan.subject === 'en' ? '英语' : '数学'}学习计划`,
       icon: '📋',
       rows: [
@@ -182,16 +186,14 @@ export async function mockSendParentChat(
         { label: '难度', value: plan.difficulty === 'easy' ? '基础' : plan.difficulty === 'medium' ? '中等' : '困难' },
         { label: '每日时长', value: `约${plan.estimatedMinutes}分钟` },
       ],
-      phases: plan.phases.map((p, idx) => ({
+      phases: plan.phases.map((p) => ({
         dayRange: p.dayRange,
         topic: p.topic,
         questionsPerDay: p.questionsPerDay,
         difficulty: p.difficulty,
-        questions: generateSampleQuestions(plan.subject, p.topic, idx),
       })),
       actions: [
-        { label: '查看详情', action: 'view_plan_detail' },
-        { label: '确认计划', action: 'confirm_plan' },
+        { label: '确认并生成题目', action: 'confirm_generate_questions' },
       ],
     }
 
@@ -203,6 +205,8 @@ export async function mockSendParentChat(
       card,
       plan,
       timestamp: new Date().toISOString(),
+      conversationId: mockConvId,
+      needsQuestionGeneration: true,
     }
   }
 
@@ -230,5 +234,54 @@ export async function mockSendParentChat(
     content: defaultReplies[Math.floor(Math.random() * defaultReplies.length)],
     type: 'text',
     timestamp: new Date().toISOString(),
+  }
+}
+
+// 模拟生成题目
+export async function mockGenerateQuestions(
+  planId: string
+): Promise<{ plan: LearningPlan; card: ChatCard; reply: string }> {
+  // 等待 AI 生成题目
+  await new Promise((resolve) => setTimeout(resolve, 2000 + Math.random() * 1000))
+
+  // 从现有计划中找到对应的计划
+  const existingPlan = mockParentPlans.find((p) => p.id === planId)
+
+  // 使用模拟计划或创建一个新计划
+  const plan = existingPlan || (await mockGeneratePlan('14天英语学习计划'))
+  plan.id = planId || plan.id
+  plan.status = 'pending'
+
+  const reply = `题目已生成！这个${plan.duration}天${plan.subject === 'en' ? '英语' : '数学'}学习计划包含 ${plan.phases.length} 个阶段，共 ${plan.phases.reduce((acc, p) => acc + p.questionsPerDay * 3, 0)} 道题目。\n\n您可以查看详情或直接确认开始学习。`
+
+  // 构建带题目的卡片配置
+  const card: ChatCard = {
+    style: 'plan',
+    title: '学习计划详情',
+    name: `${plan.duration}天${plan.subject === 'en' ? '英语' : '数学'}学习计划`,
+    icon: '📋',
+    rows: [
+      { label: '科目', value: plan.subject === 'en' ? '英语' : '数学' },
+      { label: '周期', value: `${plan.duration}天` },
+      { label: '难度', value: plan.difficulty === 'easy' ? '基础' : plan.difficulty === 'medium' ? '中等' : '困难' },
+      { label: '每日时长', value: `约${plan.estimatedMinutes}分钟` },
+    ],
+    phases: plan.phases.map((p, idx) => ({
+      dayRange: p.dayRange,
+      topic: p.topic,
+      questionsPerDay: p.questionsPerDay,
+      difficulty: p.difficulty,
+      questions: generateSampleQuestions(plan.subject, p.topic, idx),
+    })),
+    actions: [
+      { label: '查看详情', action: 'view_plan_detail' },
+      { label: '确认计划', action: 'confirm_plan' },
+    ],
+  }
+
+  return {
+    plan,
+    card,
+    reply,
   }
 }

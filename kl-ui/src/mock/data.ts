@@ -751,7 +751,7 @@ export function createInitialCalendarData(): Record<string, MonthData> {
 
 export function createInitialPetState(): PetState {
   return {
-    evolutionIndex: 2,
+    evolutionIndex: 2, // 0-based: 0=第1级, 1=第2级, ...
     stats: [
       { label: '饱食', value: 72, color: '#66BB6A' },
       { label: '快乐', value: 85, color: '#29B6F6' },

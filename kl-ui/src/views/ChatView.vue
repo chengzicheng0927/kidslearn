@@ -38,7 +38,7 @@ import {
 
 const activeSubject = ref<'en' | 'ma'>('en')
 const appStore = useAppStore()
-const { child, quizSession, achievementState, setPetEmotion, teacherName, dailyTasks, syncCalendar, calendarData } = appStore
+const { child, quizSession, achievementState, setPetEmotion, teacherName, dailyTasks, syncCalendar, calendarData, todayStars, todayMaxStars } = appStore
 const { showPasswordModal, showParentMode } = storeToRefs(appStore)
 const { openPasswordModal } = appStore
 
@@ -272,7 +272,16 @@ async function loadNextQuestion() {
   if (!currentRecord.value) return
   quizLoading.value = true
   const idx = currentRecord.value.questionIndex
-  const question = await getNextQuestion(activeSubject.value, idx)
+  const { question, summary } = await getNextQuestion(activeSubject.value, idx)
+
+  // 同步后端返回的今日总结到 store
+  dailyTasks.enTarget = summary.todayTargetEn
+  dailyTasks.maTarget = summary.todayTargetMa
+  dailyTasks.enDone = Math.min(summary.todayTargetEn, Math.floor(summary.todayDone * summary.todayTargetEn / Math.max(1, summary.todayTotal)))
+  dailyTasks.maDone = Math.min(summary.todayTargetMa, Math.ceil(summary.todayDone * summary.todayTargetMa / Math.max(1, summary.todayTotal)))
+  appStore.todayStars = summary.todayStarsEarned
+  appStore.todayMaxStars = summary.todayMaxStars
+
   if (question) {
     currentQuestion.value = question
     quizComplete.value = false
@@ -661,6 +670,7 @@ onUnmounted(() => {
 .panel {
   position: absolute;
   inset: 0;
+  height: 100%;
   transition: transform 0.4s cubic-bezier(0.34, 1.1, 0.64, 1);
 }
 

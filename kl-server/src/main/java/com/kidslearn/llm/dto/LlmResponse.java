@@ -9,8 +9,15 @@ public record LlmResponse(
     String role,
     List<ContentBlock> content,
     String model,
-    String stopReason
+    String stopReason,
+    Usage usage
 ) {
+    public record Usage(
+        int inputTokens,
+        int outputTokens,
+        int totalTokens
+    ) {}
+
     public record ContentBlock(
         String type,
         String text,

@@ -128,7 +128,9 @@ function removeQuestion(phaseIndex: number, questionId: string) {
         v-for="(action, index) in card.actions"
         :key="index"
         class="action-btn"
-        :class="{ primary: index === 0 && action.action === 'confirm_plan' }"
+        :class="{
+          primary: index === 0 && (action.action === 'confirm_plan' || action.action === 'confirm_generate_questions')
+        }"
         @click="handleAction(action.action)"
       >
         {{ action.label }}

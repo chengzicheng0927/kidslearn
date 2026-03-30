@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://192.168.2.100:8655/kidslearn
+    username: postgres
+    password: lxs1d2A@w!X1
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: 192.168.2.100
+      port: 8379
+      password: JqO9!shv1*t
+      database: 6
+
+jwt:
+  secret: dev-only-secret-key-please-change-in-production-256bit
+
+llm:
+  provider: minimax                              # 默认提供商可以切换为 kimi、minimax、anthropic、openai
+  anthropic:
+    api-key: ${ANTHROPIC_API_KEY:sk-ant-placeholder}
+  minimax:
+    api-key: ${MINIMAX_API_KEY:sk-cp-CE6GuQ6PoczrZdXeq_6taEa9UxpJOlqY4HTPiW8dpwF2velNJfAszTqG1r7r5BbMQp6kEOEXyL2VYOccDRMtRu8FHeHaah15IF34MipLNlTlg-kcqwo9xgk}
+  kimi:
+    api-key: ${KIMI_API_KEY:sk-kimi-placeholder}
+
+logging:
+  level:
+    com.kidslearn: DEBUG
+    org.hibernate.SQL: DEBUG

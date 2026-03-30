@@ -213,7 +213,8 @@ public class AuthService {
             child.getStars(), child.getStreak(), child.getTodayMinutes(),
             child.getLevel(), child.getXp(), child.getXpNeeded(),
             child.getTotalAnswered(), child.getTotalDays(),
-            child.getDailyTargetEn(), child.getDailyTargetMa()
+            child.getDailyTargetEn(), child.getDailyTargetMa(),
+            child.getGrade()
         );
     }
 

@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: local
+    active: dev
   application:
     name: kidslearn-backend
 
@@ -86,32 +86,44 @@ jwt:
 
 # ========== LLM 配置 ==========
 llm:
-  provider: anthropic
+  provider: minimax
   anthropic:
     base-url: https://api.anthropic.com
     api-key: ${ANTHROPIC_API_KEY:}
     max-tokens: 4096
     timeout: 60s
+    models:
+      chat: claude-sonnet-4-7-20260219
+      plan-generate: claude-sonnet-4-7-20260219
+      plan-adjust: claude-sonnet-4-7-20260219
+      daily-msg: claude-haiku-4-5-20260220
   openai:
     base-url: https://api.openai.com
     api-key: ${OPENAI_API_KEY:}
     max-tokens: 4096
     timeout: 60s
+    models:
+      chat: gpt-4o
+      plan-generate: gpt-4o
+      plan-adjust: gpt-4o
   minimax:
-    base-url: https://api.minimax.chat/v1
+    base-url: https://api.minimaxi.com/v1
     api-key: ${MINIMAX_API_KEY:}
     max-tokens: 4096
     timeout: 60s
+    models:
+      chat: MiniMax-M2.7
+      plan-generate: MiniMax-M2.7
+      plan-adjust: MiniMax-M2.7
   kimi:
     base-url: https://api.moonshot.cn/v1
     api-key: ${KIMI_API_KEY:}
     max-tokens: 4096
     timeout: 60s
-  models:
-    chat: claude-sonnet-4-7-20260219          # or minimax: abab6.5s-chat, kimi: moonshot-v1-8k
-    plan-generate: claude-sonnet-4-7-20260219 # or minimax: abab6.5s-chat, kimi: moonshot-v1-32k
-    plan-adjust: claude-sonnet-4-7-20260219   # or minimax: abab6.5s-chat, kimi: moonshot-v1-32k
-    daily-msg: claude-haiku-4-5-20260220
+    models:
+      chat: moonshot-v1-8k
+      plan-generate: moonshot-v1-32k
+      plan-adjust: moonshot-v1-32k
 
 # ========== 安全过滤 ==========
 safety:

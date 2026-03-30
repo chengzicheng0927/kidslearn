@@ -48,6 +48,22 @@ watch(
 
 <template>
   <div ref="scrollContainer" class="chat-scroll">
+    <!-- 粒子背景 -->
+    <div class="particles">
+      <div class="p p1"></div>
+      <div class="p p2"></div>
+      <div class="p p3"></div>
+      <div class="p p4"></div>
+      <div class="p p5"></div>
+      <div class="p p6"></div>
+      <div class="p p7"></div>
+      <div class="p p8"></div>
+      <div class="p p9"></div>
+      <div class="p p10"></div>
+      <div class="p p11"></div>
+      <div class="p p12"></div>
+    </div>
+
     <div class="chat">
 
       <!-- 加载中 -->
@@ -68,6 +84,7 @@ watch(
           :active-subject="activeSubject"
           :answered-answer-id="item.selectedAnswerId"
           :correct-answer-id="item.correctAnswerId"
+          :readonly="true"
           @next="() => {}"
           @complete="() => {}"
         />
@@ -120,13 +137,65 @@ watch(
   min-height: 0;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 0;
 }
+
+/* ========== 粒子背景 ========== */
+.particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.p {
+  position: absolute;
+  border-radius: 50%;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  animation: float linear infinite;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.7;
+  }
+  80% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-100vh) rotate(360deg) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.p1 { width: 8px;  height: 8px;  left: 8%;  bottom: -10px; background: rgba(255, 228, 160, 0.6); animation-duration: 8s;  animation-delay: 0s;    }
+.p2 { width: 6px;  height: 6px;  left: 20%; bottom: -10px; background: rgba(255, 183, 178, 0.6); animation-duration: 10s; animation-delay: 1s;    }
+.p3 { width: 10px; height: 10px; left: 35%; bottom: -10px; background: rgba(179, 229, 252, 0.6); animation-duration: 9s;  animation-delay: 0.5s;  }
+.p4 { width: 5px;  height: 5px;  left: 50%; bottom: -10px; background: rgba(200, 240, 208, 0.6); animation-duration: 12s; animation-delay: 2s;    }
+.p5 { width: 7px;  height: 7px;  left: 65%; bottom: -10px; background: rgba(255, 224, 178, 0.6); animation-duration: 8s;  animation-delay: 1.5s;  }
+.p6 { width: 9px;  height: 9px;  left: 78%; bottom: -10px; background: rgba(206, 147, 216, 0.5); animation-duration: 11s; animation-delay: 0.8s;  }
+.p7 { width: 6px;  height: 6px;  left: 15%; bottom: -10px; background: rgba(128, 203, 196, 0.5); animation-duration: 9s;  animation-delay: 3s;    }
+.p8 { width: 8px;  height: 8px;  left: 42%; bottom: -10px; background: rgba(255, 202, 40,  0.5); animation-duration: 10s; animation-delay: 0.3s;  }
+.p9 { width: 5px;  height: 5px;  left: 88%; bottom: -10px; background: rgba(255, 138, 101, 0.5); animation-duration: 7s;  animation-delay: 2.5s;  }
+.p10 { width: 7px; height: 7px; left: 28%; bottom: -10px; background: rgba(144, 202, 249, 0.5); animation-duration: 9s;  animation-delay: 1.2s;  }
+.p11 { width: 6px; height: 6px; left: 58%; bottom: -10px; background: rgba(220, 231, 117, 0.5); animation-duration: 11s; animation-delay: 0.7s;  }
+.p12 { width: 10px;height: 10px;left: 72%; bottom: -10px; background: rgba(186, 104, 200, 0.4); animation-duration: 8s;  animation-delay: 3.5s;  }
 
 .chat {
   padding: 4px 16px 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 /* 加载中 */

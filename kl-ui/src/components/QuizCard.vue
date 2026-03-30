@@ -9,8 +9,10 @@ const props = withDefaults(defineProps<{
   answeredAnswerId?: string
   correctAnswerId?: string
   activeSubject?: 'en' | 'ma'
+  readonly?: boolean   // 历史记录模式，不播放答对/答错动画
 }>(), {
   activeSubject: 'en',
+  readonly: false,
 })
 
 const isSpeaking = ref(false)
@@ -40,13 +42,11 @@ function speak(text: string, lang = 'zh-CN') {
     doSpeak(text, lang)
     return
   }
-  // voices 尚未加载，监听 voiceschanged 事件
   const handler = () => {
     speechSynthesis.removeEventListener('voiceschanged', handler)
     doSpeak(text, lang)
   }
   speechSynthesis.addEventListener('voiceschanged', handler)
-  // 同时在 500ms 后重试（兜底，确保不卡死）
   setTimeout(() => {
     speechSynthesis.removeEventListener('voiceschanged', handler)
     const v2 = speechSynthesis.getVoices()
@@ -193,51 +193,88 @@ function handleNext() {
   }
   lastAnswerData.value = null
 }
+
+// 选项颜色配置（依次循环）
+const optionColors = [
+  { bg: 'linear-gradient(135deg, #dcedc8, #f1f8e9)', shadow: '#c5e1a5', label: 'A' },
+  { bg: 'linear-gradient(135deg, #b3e5fc, #e1f5fe)', shadow: '#81d4fa', label: 'B' },
+  { bg: 'linear-gradient(135deg, #ffe0b2, #fff3e0)', shadow: '#ffcc80', label: 'C' },
+  { bg: 'linear-gradient(135deg, #f8bbd0, #fce4ec)', shadow: '#f48fb1', label: 'D' },
+]
+
+function getOptionColor(index: number) {
+  return optionColors[index % optionColors.length]
+}
 </script>
 
 <template>
-  <div class="qcard" :class="'subject-' + activeSubject">
+  <div class="qcard subject-en" :class="['subject-' + activeSubject, { readonly: props.readonly }]">
+    <!-- 听题按钮 -->
+    <button class="speak-btn" @click.stop="speak(quiz.question, activeSubject === 'en' ? 'en-US' : 'zh-CN')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <path d="M5 9H8L13 5V19L8 15H5V9Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M16 8.5C17.8 9.9 19 11.9 19 14C19 16.1 17.8 18.1 16 19.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- 标签行 -->
     <div class="qlbl">
       <span>{{ quiz.label }}</span>
       <span class="quiz-stars">+{{ quiz.reward?.stars ?? 2 }}⭐</span>
     </div>
 
-    <div class="qq-wrap">
-      <div class="qq">{{ quiz.question }}</div>
-      <button class="speak-btn" @click.stop="speak(quiz.question, activeSubject === 'en' ? 'en-US' : 'zh-CN')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <path d="M5 9H8L13 5V19L8 15H5V9Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-          <path d="M16 8.5C17.8 9.9 19 11.9 19 14C19 16.1 17.8 18.1 16 19.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
+    <!-- 撕纸卡片：狐狸 + 气泡 + 选项全部在里面 -->
+    <div class="torn-card">
+      <!-- 狐狸 + 气泡同排 -->
+      <div class="fox-bubble-row">
+        <div class="fox-area">
+          <img class="fox-img" src="/fox.png" alt="小狐狸" />
+        </div>
+        <div class="speech-area">
+          <div class="speech-bubble">
+            <div class="fox-label">小狐狸说：</div>
+            <div class="question-text">{{ quiz.question }}</div>
+          </div>
+        </div>
+      </div>
 
-    <ThinkingModal v-if="isEvaluating" />
-
-    <div class="qopts">
-      <div
-        v-for="(option, idx) in quiz.options"
-        :key="idx"
-        class="qo"
-        :class="{
-          'is-disabled': isEvaluating,
-          'ok': answeredAnswerId !== undefined
-            ? props.correctAnswerId === option.id
-            : (!isEvaluating && answered && resolvedCorrectAnswerId !== null && resolvedCorrectAnswerId === option.id),
-          'no': answeredAnswerId !== undefined
-            ? answeredAnswerId === option.id && props.correctAnswerId !== undefined && answeredAnswerId !== props.correctAnswerId
-            : (!isEvaluating && answered && selectedIndex === idx && resolvedCorrectAnswerId !== null && resolvedCorrectAnswerId !== option.id)
-        }"
-        @click="answeredAnswerId !== undefined ? () => {} : pick(option, idx)"
-        @touchstart="startLongPress(option)"
-        @touchend="cancelLongPress"
-        @touchcancel="cancelLongPress"
-      >
-        <div v-if="option.emoji" class="opt-em">{{ option.emoji }}</div>
-        <span class="opt-text">{{ option.text }}</span>
+      <!-- 选项 -->
+      <div class="qopts">
+        <div
+          v-for="(option, idx) in quiz.options"
+          :key="idx"
+          class="qo"
+          :class="{
+            'is-disabled': isEvaluating,
+            'ok': answeredAnswerId !== undefined
+              ? props.correctAnswerId === option.id
+              : (!isEvaluating && answered && resolvedCorrectAnswerId !== null && resolvedCorrectAnswerId === option.id),
+            'no': answeredAnswerId !== undefined
+              ? answeredAnswerId === option.id && props.correctAnswerId !== undefined && answeredAnswerId !== props.correctAnswerId
+              : (!isEvaluating && answered && selectedIndex === idx && resolvedCorrectAnswerId !== null && resolvedCorrectAnswerId !== option.id)
+          }"
+          :style="!readonly && !answered && !isEvaluating && answeredAnswerId === undefined ? {
+            background: getOptionColor(idx).bg,
+            boxShadow: `2px 5px 10px rgba(0,0,0,0.08), -1px 2px 4px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.6)`,
+          } : {}"
+          @click="answeredAnswerId !== undefined ? () => {} : pick(option, idx)"
+          @touchstart="startLongPress(option)"
+          @touchend="cancelLongPress"
+          @touchcancel="cancelLongPress"
+        >
+          <span class="opt-main">
+            <span class="opt-label">{{ getOptionColor(idx).label }}.</span>
+            <span class="opt-text">{{ option.text }}</span>
+          </span>
+          <span v-if="option.emoji" class="opt-em">{{ option.emoji }}</span>
+        </div>
       </div>
     </div>
 
+    <!-- 评判中动画 -->
+    <ThinkingModal v-if="isEvaluating" />
+
+    <!-- 结果弹窗 -->
     <ResultModal
       v-if="showResult && resultData"
       :is-correct="resultData.isCorrect"
@@ -262,13 +299,14 @@ function handleNext() {
 </template>
 
 <style scoped>
+/* 整体卡片 */
 .qcard {
-  background: var(--card);
-  border-radius: 16px;
-  padding: 14px 16px 12px;
   margin: 0 0 6px;
+  position: relative;
+  padding-top: 2px;
 }
 
+/* 标签行 */
 .qlbl {
   display: flex;
   align-items: center;
@@ -276,7 +314,7 @@ function handleNext() {
   font-size: 10px;
   font-weight: 600;
   color: #B0B8C4;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .quiz-stars {
@@ -285,120 +323,222 @@ function handleNext() {
   color: #FFB300;
 }
 
-.qq-wrap {
+/* ========== 撕纸卡片（狐狸 + 气泡 + 选项全部在里面） ========== */
+.torn-card {
+  background: #FFF;
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  border: 2px solid #f0f0f0;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+  padding: 14px 16px 16px;
+  margin-bottom: 0;
+  overflow: visible;
+  position: relative;
+}
+
+/* 狐狸 + 气泡同排 */
+.fox-bubble-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
-.qq {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--txt);
-  line-height: 1.5;
-  flex: 1;
-  min-width: 0;
-}
-
-/* 听题按钮 */
-.speak-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #E8F4FF;
-  border: none;
-  cursor: pointer;
+/* 狐狸 */
+.fox-area {
+  width: 36%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background 0.2s, transform 0.15s;
 }
 
-.speak-btn:active {
-  transform: scale(0.92);
-  background: #D0E8FF;
+.fox-img {
+  width: 100%;
+  max-width: 100px;
+  object-fit: contain;
+  filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.1));
 }
 
-.qcard .speak-btn svg path {
-  stroke: #40C4FF;
+/* ========== 气泡 ========== */
+.speech-area {
+  flex: 1;
+  min-width: 0;
+  position: relative;
 }
 
-/* 选项 */
-.qopts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+/* 气泡主体 */
+.speech-bubble {
+  background: #FFF;
+  border: 1.5px solid #E0D9C8;
+  border-radius: 16px 6px 16px 6px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  position: relative;
 }
 
-.qo {
-  border-radius: 10px;
-  background: #FAFAFA;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--txt);
+/* 气泡尖角（朝左指向狐狸） */
+.speech-bubble::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: 14px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-right: 8px solid #E0D9C8;
+  border-bottom: 0px solid transparent;
+}
+
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 15px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-right: 6px solid #FFF;
+  border-bottom: 0px solid transparent;
+}
+
+.fox-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #F57C00;
+  margin-bottom: 4px;
+}
+
+.question-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #3A3A3A;
+  line-height: 1.5;
+}
+
+/* ========== 听题按钮 ========== */
+.speak-btn {
+  position: absolute;
+  top: 36px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #FFF;
+  border: 1.5px solid #E0D9C8;
   cursor: pointer;
-  transition: background 0.2s, transform 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 10px 8px;
-  text-align: center;
+  transition: transform 0.15s, background 0.2s;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.speak-btn:active {
+  transform: scale(0.9);
+  background: #F5F0E0;
+}
+
+.speak-btn svg path {
+  stroke: #B0A890;
+}
+
+/* ========== 选项区 ========== */
+.qopts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.qo {
+  border-radius: 8px;
+  background: #FAFAFA;
+  font-size: 15px;
+  font-weight: 700;
+  color: #3A3A3A;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 2px solid rgba(0,0,0,0.05);
 }
 
 .qo:active:not(.ok):not(.no):not(.is-disabled) {
-  transform: scale(0.97);
-  background: #F0F0F0;
+  transform: scale(0.96);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .qo:hover:not(.ok):not(.no):not(.is-disabled) {
-    background: #F0F0F0;
+    transform: scale(1.02);
   }
 }
 
 .qo.is-disabled {
   cursor: wait;
+  opacity: 0.7;
 }
 
-.opt-em {
-  font-size: 18px;
-  line-height: 1;
+.opt-main {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
 }
 
+.opt-label {
+  font-weight: 700;
+  color: #5D4037;
+}
+
 .opt-text {
-  flex: 1;
-  text-align: center;
-  min-width: 0;
+  color: #3A3A3A;
   word-break: break-word;
+}
+
+.opt-em {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+  color: #5D4037;
 }
 
 /* 答对 */
 .qo.ok {
-  background: #E8F5E9;
+  background: linear-gradient(135deg, #c8e6c9, #e8f5e9) !important;
   color: #2E7D32;
+  border-color: #81C784;
   animation: popIn 0.3s ease;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.25) !important;
 }
 
 /* 答错 */
 .qo.no {
-  background: #FFEBEE;
+  background: linear-gradient(135deg, #ffcdd2, #ffebee) !important;
   color: #C62828;
+  border-color: #EF9A9A;
   animation: shakeIn 0.3s ease;
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.2) !important;
+}
+
+/* readonly 模式下：保留颜色，去掉动画 */
+.qcard.readonly .qo.ok,
+.qcard.readonly .qo.no {
+  animation: none;
 }
 
 @keyframes popIn {
   0% { transform: scale(1); }
-  50% { transform: scale(1.04); }
+  50% { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
 
 @keyframes shakeIn {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-3px); }
-  75% { transform: translateX(3px); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
 }
 </style>

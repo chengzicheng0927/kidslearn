@@ -86,6 +86,9 @@ public class Child {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(length = 20)
+    private String grade;
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();

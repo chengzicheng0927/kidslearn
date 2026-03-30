@@ -2,13 +2,16 @@
 
 import { ref, computed } from 'vue'
 import type { ParentMessage, LearningPlan } from '../types/parent'
-import { sendParentChat, getParentPlans, confirmPlan, cancelPlan } from '../services/api'
+import { sendParentChat, getParentPlans, confirmPlan, cancelPlan, generateQuestions } from '../services/api'
 
 // 消息列表
 const messages = ref<ParentMessage[]>([])
 
 // 加载状态
 const isLoading = ref(false)
+
+// 题目生成中状态
+const isGeneratingQuestions = ref(false)
 
 // 当前待确认的计划
 const pendingPlan = ref<LearningPlan | null>(null)
@@ -18,6 +21,9 @@ const activePlan = ref<LearningPlan | null>(null)
 
 // 历史计划
 const planHistory = ref<LearningPlan[]>([])
+
+// 当前对话ID（用于多轮对话）
+const conversationId = ref<string | null>(null)
 
 // 检测是否需要生成学习计划
 function needsPlanGeneration(content: string): boolean {
@@ -63,7 +69,7 @@ async function sendMessage(content: string) {
   }
 
   try {
-    const response = await sendParentChat(content, activePlan.value?.id)
+    const response = await sendParentChat(content, activePlan.value?.id, conversationId.value || undefined)
 
     // 移除 loading 消息
     if (loadingMsgId) {
@@ -71,6 +77,11 @@ async function sendMessage(content: string) {
       if (loadingIndex !== -1) {
         messages.value.splice(loadingIndex, 1)
       }
+    }
+
+    // 保存对话ID（如果有）
+    if (response.conversationId) {
+      conversationId.value = response.conversationId
     }
 
     if (response.plan) {
@@ -97,6 +108,42 @@ async function sendMessage(content: string) {
     })
   } finally {
     isLoading.value = false
+  }
+}
+
+// 生成题目（用户确认计划后调用）
+async function handleGenerateQuestions(plan: LearningPlan) {
+  if (!plan.id || isGeneratingQuestions.value) return
+
+  isGeneratingQuestions.value = true
+
+  try {
+    const response = await generateQuestions(plan.id, conversationId.value || undefined)
+
+    // 更新 pendingPlan
+    pendingPlan.value = response.plan
+
+    // 找到包含该计划的消息，替换为带题目的完整卡片
+    const planMsgIndex = messages.value.findIndex(m => m.plan?.id === plan.id)
+    if (planMsgIndex !== -1) {
+      messages.value[planMsgIndex] = {
+        ...messages.value[planMsgIndex],
+        content: response.reply,
+        type: 'card',
+        card: response.card,
+        plan: response.plan,
+      }
+    }
+  } catch (error) {
+    messages.value.push({
+      id: `msg-${Date.now()}-error`,
+      role: 'ai',
+      content: '抱歉，生成题目时发生了错误，请稍后重试。',
+      type: 'error',
+      timestamp: new Date().toISOString(),
+    })
+  } finally {
+    isGeneratingQuestions.value = false
   }
 }
 
@@ -150,6 +197,8 @@ function resetParentState() {
   messages.value = []
   pendingPlan.value = null
   isLoading.value = false
+  isGeneratingQuestions.value = false
+  conversationId.value = null
 }
 
 export function useParentState() {
@@ -157,9 +206,11 @@ export function useParentState() {
     // 状态
     messages,
     isLoading,
+    isGeneratingQuestions,
     pendingPlan,
     activePlan,
     planHistory,
+    conversationId,
 
     // 计算属性
     hasPendingPlan: computed(() => pendingPlan.value !== null),
@@ -167,6 +218,7 @@ export function useParentState() {
     // 方法
     initParentState,
     sendMessage,
+    handleGenerateQuestions,
     handleConfirmPlan,
     handleCancelPlan,
     resetParentState,

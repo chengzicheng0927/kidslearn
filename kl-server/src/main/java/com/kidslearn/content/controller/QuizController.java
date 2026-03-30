@@ -18,8 +18,8 @@ public class QuizController {
     private final QuizService quizService;
 
     @PostMapping("/next")
-    public ApiResponse<QuestionDTO> next(@RequestBody QuizNextRequest req,
-                                          @RequestParam UUID childId) {
+    public ApiResponse<QuizNextResponse> next(@RequestBody QuizNextRequest req,
+                                              @RequestParam UUID childId) {
         return ApiResponse.ok(quizService.getNextQuestion(req, childId));
     }
 

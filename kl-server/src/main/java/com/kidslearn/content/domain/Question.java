@@ -8,6 +8,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -109,6 +110,14 @@ public class Question {
 
     @Column(columnDefinition = "TEXT[]")
     private String[] tags;
+
+    /**
+     * 题目计划日期。题目在创建学习计划时预分配到具体日期，
+     * 取题时只取 scheduledDate = today 的题目。
+     * 为 null 表示未分配日期的题目（老数据或临时题）。
+     */
+    @Column(name = "scheduled_date")
+    private LocalDate scheduledDate;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -12,6 +12,8 @@ public record AnswerSubmittedEvent(
     UUID childId,
     UUID sessionId,
     UUID questionId,
+    UUID planQuestionId,
+    String selectedAnswer,
     boolean isCorrect,
     int comboAtAnswer,
     String subject,

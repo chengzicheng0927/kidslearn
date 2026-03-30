@@ -30,24 +30,31 @@ const selectedPetIndex = ref(petState.value.evolutionIndex - 2)
 // 根据选中索引，生成5个槽位的内容
 const slots = computed(() => {
   const total = evolutions.value.length
+  const totalAnswered = appStore.badgeState.totalAnswered ?? 0
   return [0, 1, 2, 3, 4].map(offset => {
     const petIndex = selectedPetIndex.value + offset
     const hasPet = petIndex >= 0 && petIndex < total
+    // 该阶段累计需要的总题数：petIndex=0(第1阶段)=50, petIndex=1(第2阶段)=100...
+    const stageTotalQuestions = (petIndex + 1) * QUESTIONS_PER_EVO
     return {
       petIndex,
       hasPet,
       evo: hasPet ? evolutions.value[petIndex] : null,
       deco: hasPet ? PET_ARENA_DECO[petIndex] : null,
       isCurrent: hasPet && petIndex === petState.evolutionIndex,
+      progressText: hasPet ? `${totalAnswered}/${stageTotalQuestions}` : '',
     }
   })
 })
 
 // 进化进度条
 const QUESTIONS_PER_EVO = 50
-const evoProgress = computed(() => badgeState.totalAnswered % QUESTIONS_PER_EVO)
+const evoProgress = computed(() => (appStore.badgeState.totalAnswered ?? 0) % QUESTIONS_PER_EVO)
 const evoNeeded = computed(() => QUESTIONS_PER_EVO - evoProgress.value)
-const evoProgressPercent = computed(() => (evoProgress.value / QUESTIONS_PER_EVO) * 100)
+const evoProgressPercent = computed(() => {
+  const answered = appStore.badgeState.totalAnswered ?? 0
+  return (answered / QUESTIONS_PER_EVO) * 100
+})
 
 // 成就墙 & 菜单
 const showAchievementWall = ref(false)
@@ -143,8 +150,8 @@ async function feed(item: PetFoodItem, e: MouseEvent | TouchEvent) {
     <!-- 知识星球徽章卡片 -->
     <KnowledgeBadgeCard
       :badges="badges"
-      :earned-ids="badgeState.earnedBadges"
-      :total-answered="badgeState.totalAnswered"
+      :earned-ids="appStore.badgeState.earnedBadges"
+      :total-answered="appStore.badgeState.totalAnswered ?? 0"
     />
 
     <!-- 宠物头像走马灯 -->
@@ -169,7 +176,7 @@ async function feed(item: PetFoodItem, e: MouseEvent | TouchEvent) {
             <TwemojiText v-else text="+" class="ci-emoji ci-plus" />
           </div>
           <div class="ci-name">{{ slot.hasPet ? slot.evo!.name : '添加宠物' }}</div>
-          <div class="ci-label">{{ slot.hasPet ? slot.deco!.label : '' }}</div>
+          <div class="ci-label">{{ slot.hasPet ? slot.deco!.label : '' }}<span v-if="slot.hasPet">({{ slot.progressText }})</span></div>
         </div>
       </div>
     </div>
@@ -232,13 +239,13 @@ async function feed(item: PetFoodItem, e: MouseEvent | TouchEvent) {
   <AchievementWall
     v-if="showAchievementWall"
     :achievements="achievements"
-    :earned-ids="achievementState.earnedAchievements"
+    :earned-ids="appStore.achievementState.earnedAchievements"
     :stats="{
-      totalQuestions: achievementState.totalQuestions,
-      currentStreak: achievementState.currentStreak,
-      bestStreak: achievementState.bestStreak,
-      todayCorrect: achievementState.todayCorrect,
-      todayTotal: achievementState.todayTotal,
+      totalQuestions: appStore.achievementState.totalQuestions ?? 0,
+      currentStreak: appStore.achievementState.currentStreak ?? 0,
+      bestStreak: appStore.achievementState.bestStreak ?? 0,
+      todayCorrect: appStore.achievementState.todayCorrect ?? 0,
+      todayTotal: appStore.achievementState.todayTotal ?? 0,
     }"
     @close="showAchievementWall = false"
   />

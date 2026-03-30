@@ -113,7 +113,7 @@ class AchievementServiceTest {
         when(achievementDefinitionRepository.findById("ach-special-1")).thenReturn(Optional.of(special1));
 
         AnswerSubmittedEvent event = new AnswerSubmittedEvent(
-                childId, UUID.randomUUID(), UUID.randomUUID(),
+                childId, UUID.randomUUID(), UUID.randomUUID(), null, "a",
                 true, 1, "en", "animals", Instant.now()
         );
 
@@ -135,7 +135,7 @@ class AchievementServiceTest {
         when(achievementRepository.existsByChildIdAndDefinitionId(childId, "ach-special-1")).thenReturn(true);
 
         AnswerSubmittedEvent event = new AnswerSubmittedEvent(
-                childId, UUID.randomUUID(), UUID.randomUUID(),
+                childId, UUID.randomUUID(), UUID.randomUUID(), null, "a",
                 true, 1, "en", "animals", Instant.now()
         );
 
@@ -161,7 +161,7 @@ class AchievementServiceTest {
         when(achievementDefinitionRepository.findById("ach-special-1")).thenReturn(Optional.of(special1));
 
         AnswerSubmittedEvent event = new AnswerSubmittedEvent(
-                childId, UUID.randomUUID(), UUID.randomUUID(),
+                childId, UUID.randomUUID(), UUID.randomUUID(), null, "a",
                 true, 10, "en", "animals", Instant.now()
         );
 
@@ -187,7 +187,7 @@ class AchievementServiceTest {
         when(achievementDefinitionRepository.findById("ach-special-1")).thenReturn(Optional.of(special1));
 
         AnswerSubmittedEvent event = new AnswerSubmittedEvent(
-                childId, UUID.randomUUID(), UUID.randomUUID(),
+                childId, UUID.randomUUID(), UUID.randomUUID(), null, "a",
                 true, 0, "en", "animals", Instant.now()
         );
 
@@ -215,7 +215,7 @@ class AchievementServiceTest {
         when(achievementDefinitionRepository.findById("ach-vol-3")).thenReturn(Optional.of(vol3));
 
         AnswerSubmittedEvent event = new AnswerSubmittedEvent(
-                childId, UUID.randomUUID(), UUID.randomUUID(),
+                childId, UUID.randomUUID(), UUID.randomUUID(), null, "a",
                 true, 0, "en", "animals", Instant.now()
         );
 

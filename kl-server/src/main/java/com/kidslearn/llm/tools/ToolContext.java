@@ -11,5 +11,6 @@ public record ToolContext(
     String childName,
     int childAge,
     String childAgeGroup,
+    String childGrade,
     String subject
 ) {}

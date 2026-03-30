@@ -90,6 +90,8 @@ export interface ParentMessage {
   planAction?: 'confirm' | 'adjust' | 'cancel'
   timestamp: string
   thinking?: boolean
+  conversationId?: string  // 对话ID（用于多轮对话）
+  needsQuestionGeneration?: boolean  // 是否需要生成题目（plan阶段）
 }
 
 /**

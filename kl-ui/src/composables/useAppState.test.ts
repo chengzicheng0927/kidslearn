@@ -49,11 +49,13 @@ describe('useAppState', () => {
   it('handles evolution bounds and selected day lookup', () => {
     const state = useAppState()
 
+    // 初始为 2；setPetEvolution(1) < 2，无效，保持 2
     state.setPetEvolution(1)
-    expect(state.petState.value.evolutionIndex).toBe(1)
+    expect(state.petState.value.evolutionIndex).toBe(2)
 
+    // setPetEvolution(4) >= 2，有效，设为 4
     state.setPetEvolution(4)
-    expect(state.petState.value.evolutionIndex).toBe(1)
+    expect(state.petState.value.evolutionIndex).toBe(4)
 
     expect(state.childStars.value).toBe(mockChildData.stars)
     expect(state.childStreak.value).toBe(mockChildData.streak)

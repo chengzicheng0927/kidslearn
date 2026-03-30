@@ -17,4 +17,6 @@ public interface StudyRecordRepository extends JpaRepository<StudyRecord, UUID> 
 
     @Query("SELECT sr FROM StudyRecord sr WHERE sr.childId = :childId AND sr.recordDate >= :start ORDER BY sr.recordDate DESC")
     List<StudyRecord> findRecentByChildId(UUID childId, LocalDate start);
+
+    List<StudyRecord> findByChildIdAndRecordDate(UUID childId, LocalDate date);
 }

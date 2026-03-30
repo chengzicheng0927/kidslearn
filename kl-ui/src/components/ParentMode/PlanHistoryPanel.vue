@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import ChatCard from './ChatCard.vue'
 import TwemojiText from '../TwemojiText.vue'
+import PlanDetailModal from './PlanDetailModal.vue'
 import type { LearningPlan } from '../../types/parent'
 
 const props = defineProps<{
@@ -11,9 +12,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
+  (e: 'removeQuestion', planId: string, phaseIndex: number, questionId: string): void
 }>()
 
 const currentIndex = ref(props.initialIndex ?? 0)
+const showDetailModal = ref(false)
+const detailPlanId = ref<string | null>(null)
 
 const currentPlan = computed(() => {
   if (props.planHistory.length === 0) return null
@@ -36,7 +40,17 @@ function goNext() {
 }
 
 function handleCardAction(action: string) {
-  console.log('PlanHistoryPanel action:', action, currentPlan.value)
+  if (action === 'view_plan_detail' && currentPlan.value) {
+    detailPlanId.value = currentPlan.value.id
+    showDetailModal.value = true
+  }
+}
+
+function handleRemoveQuestion(phaseIndex: number, questionId: string) {
+  if (currentPlan.value) {
+    emit('removeQuestion', currentPlan.value.id, phaseIndex, questionId)
+  }
+  showDetailModal.value = false
 }
 
 function isCompleted(plan: LearningPlan): boolean {
@@ -175,6 +189,14 @@ function getActions(status: string) {
         @click="currentIndex = index"
       />
     </div>
+
+    <!-- 详情弹窗 -->
+    <PlanDetailModal
+      v-if="showDetailModal && detailPlanId"
+      :plan-id="detailPlanId"
+      @close="showDetailModal = false"
+      @remove-question="handleRemoveQuestion"
+    />
   </div>
 </template>
 
