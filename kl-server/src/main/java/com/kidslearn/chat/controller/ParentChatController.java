@@ -1,7 +1,5 @@
 package com.kidslearn.chat.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kidslearn.chat.dto.*;
 import com.kidslearn.chat.service.ChatHistoryService;
 import com.kidslearn.chat.service.SafetyFilterService;
@@ -31,7 +29,6 @@ public class ParentChatController {
     private final com.kidslearn.llm.service.LlmService llmService;
     private final ChildRepository childRepository;
     private final ChatHistoryService chatHistoryService;
-    private final ObjectMapper objectMapper;
 
     @PostMapping
     public ApiResponse<ParentChatResponse> chat(@Valid @RequestBody ParentChatRequest req,
@@ -45,7 +42,7 @@ public class ParentChatController {
             MDC.put("parentId", parentId.toString());
             if (childId != null) MDC.put("childId", childId.toString());
 
-            log.info("CHAT_START | message='{}' | childId={} | context={}", req.message(), childId, req.context());
+            log.info("CHAT_START | message='{}' | childId={} | conversationId={} | context={}", req.message(), childId, req.conversationId(), req.context());
 
             // 安全过滤
             var filterResult = safetyFilterService.filterInput(req.message(), parentId);
@@ -73,7 +70,7 @@ public class ParentChatController {
 
             String childName = child != null ? child.getName() : "孩子";
             int childAge = child != null ? child.getAge() : 0;
-            String childAgeGroup = child != null ? child.getAgeGroup() : (childAge > 0 ? Child.calcAgeGroup(childAge) : "未知");
+            String childAgeGroup = child != null ? child.getAgeGroup() : "未知";
             String childGrade = child != null && child.getGrade() != null ? child.getGrade() : "未知";
 
             log.info("CHAT_CONTEXT | childName={} | childAge={} | childGrade={} | childId={}",
@@ -81,20 +78,27 @@ public class ParentChatController {
 
             com.kidslearn.llm.tools.ToolContext ctx = new com.kidslearn.llm.tools.ToolContext(
                 parentId, childId, childName, childAge, childAgeGroup, childGrade,
-                req.context() != null ? req.context().subject() : "en"
+                req.context() != null ? req.context().subject() : null
             );
 
-            // 获取对话历史
-            List<LlmRequest.Message> historyMessages = chatHistoryService.getHistoryMessages(parentId, childId);
+            // 确定 conversationId（前端传入优先，否则生成新的）
+            String conversationId = req.conversationId();
+            if (conversationId == null || conversationId.isBlank()) {
+                conversationId = UUID.randomUUID().toString().substring(0, 8);
+                log.info("CONVERSATION_ID_NEW | conversationId={}", conversationId);
+            }
+
+            // 获取对话历史（按 conversationId 查询）
+            List<LlmRequest.Message> historyMessages = chatHistoryService.getHistoryMessages(parentId, childId, conversationId);
 
             // 保存用户消息
-            chatHistoryService.saveUserMessage(parentId, childId, req.message());
+            chatHistoryService.saveUserMessage(parentId, childId, req.message(), conversationId);
 
-            // 调用 LLM 服务
-            ParentChatResponse response = llmService.chat(req, ctx, historyMessages);
+            // 调用 LLM 服务（传入已确定的 conversationId）
+            ParentChatResponse response = llmService.chat(req, ctx, historyMessages, conversationId);
 
             // 保存助手回复
-            chatHistoryService.saveAssistantMessage(parentId, childId, response.reply());
+            chatHistoryService.saveAssistantMessage(parentId, childId, response.reply(), conversationId);
 
             log.info("CHAT_END | reply='{}'", response.reply());
             return ApiResponse.ok(response);

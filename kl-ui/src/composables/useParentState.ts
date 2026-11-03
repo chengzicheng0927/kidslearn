@@ -2,7 +2,7 @@
 
 import { ref, computed } from 'vue'
 import type { ParentMessage, LearningPlan } from '../types/parent'
-import { sendParentChat, getParentPlans, confirmPlan, cancelPlan, generateQuestions } from '../services/api'
+import { sendParentChat, getParentPlans, confirmPlan, cancelPlan, generateQuestionsFromBank } from '../services/api'
 
 // 消息列表
 const messages = ref<ParentMessage[]>([])
@@ -27,8 +27,15 @@ const conversationId = ref<string | null>(null)
 
 // 检测是否需要生成学习计划
 function needsPlanGeneration(content: string): boolean {
-  const keywords = ['计划', '安排', '制定', '学习', '英语', '数学']
-  return keywords.some(k => content.includes(k))
+  // 仅匹配明确的计划创建意图，排除"生成题目"等场景
+  const planKeywords = ['计划', '安排', '制定']
+  const subjectKeywords = ['英语', '数学']
+  const hasSubject = subjectKeywords.some(k => content.includes(k))
+  const hasPlanIntent = planKeywords.some(k => content.includes(k))
+  // 有科目关键词时，需要同时有计划意图词
+  if (hasSubject) return hasPlanIntent
+  // 无科目时，仅计划意图词触发
+  return hasPlanIntent
 }
 
 // 初始化：加载计划列表
@@ -39,7 +46,7 @@ async function initParentState() {
 }
 
 // 发送消息
-async function sendMessage(content: string) {
+async function sendMessage(content: string, skipPushUser = false, context?: { subject?: 'en' | 'ma' }) {
   if (!content.trim() || isLoading.value) return
 
   const userMessage: ParentMessage = {
@@ -50,26 +57,29 @@ async function sendMessage(content: string) {
     timestamp: new Date().toISOString(),
   }
 
-  messages.value.push(userMessage)
+  if (!skipPushUser) {
+    messages.value.push(userMessage)
+  }
   isLoading.value = true
 
-  // 如果需要生成学习计划，先显示 loading
-  const loadingMsgId = needsPlanGeneration(content.trim())
+  // 检查是否已有 plan_loading 消息（handleGenerateQuestions 会提前推送）
+  const existingLoading = messages.value.find(m => m.type === 'plan_loading')
+  const loadingMsgId = existingLoading?.id ?? (needsPlanGeneration(content.trim())
     ? `msg-${Date.now()}-loading`
-    : null
+    : null)
 
-  if (loadingMsgId) {
+  if (loadingMsgId && !existingLoading) {
     messages.value.push({
       id: loadingMsgId,
       role: 'ai',
-      content: '',
+      content: '正在生成学习计划',
       type: 'plan_loading',
       timestamp: new Date().toISOString(),
     })
   }
 
   try {
-    const response = await sendParentChat(content, activePlan.value?.id, conversationId.value || undefined)
+    const response = await sendParentChat(content, activePlan.value?.id, conversationId.value || undefined, context)
 
     // 移除 loading 消息
     if (loadingMsgId) {
@@ -111,53 +121,95 @@ async function sendMessage(content: string) {
   }
 }
 
-// 生成题目（用户确认计划后调用）
+// 生成题目（用户确认计划后调用，从题库匹配）
 async function handleGenerateQuestions(plan: LearningPlan) {
-  if (!plan.id || isGeneratingQuestions.value) return
+  if (!plan.id) return
 
-  isGeneratingQuestions.value = true
+  // 显示 loading 消息
+  const loadingMsgId = `msg-${Date.now()}-loading`
+  messages.value.push({
+    id: loadingMsgId,
+    role: 'ai',
+    content: '正在为萌萌匹配练习题...',
+    type: 'plan_loading',
+    timestamp: new Date().toISOString(),
+  })
 
   try {
-    const response = await generateQuestions(plan.id, conversationId.value || undefined)
+    // 直接调 API 从题库获取题目（不走 LLM）
+    const result = await generateQuestionsFromBank(plan.id)
 
-    // 更新 pendingPlan
-    pendingPlan.value = response.plan
+    // 移除 loading 消息
+    messages.value = messages.value.filter(m => m.id !== loadingMsgId)
 
-    // 找到包含该计划的消息，替换为带题目的完整卡片
-    const planMsgIndex = messages.value.findIndex(m => m.plan?.id === plan.id)
-    if (planMsgIndex !== -1) {
-      messages.value[planMsgIndex] = {
-        ...messages.value[planMsgIndex],
-        content: response.reply,
-        type: 'card',
-        card: response.card,
-        plan: response.plan,
+    if (result.success) {
+      pendingPlan.value = result.plan
+
+      const card: import('../types/parent').ChatCard = {
+        style: 'plan',
+        title: '题目已准备好啦！',
+        name: `${result.plan.duration}天${result.plan.subject === 'en' ? '英语' : '数学'}学习计划`,
+        icon: '🎉',
+        rows: [
+          { label: '科目', value: result.plan.subject === 'en' ? '英语' : '数学' },
+          { label: '周期', value: `${result.plan.duration}天` },
+          { label: '已匹配', value: `${result.totalQuestions}道练习题` },
+        ],
+        phases: result.plan.phases?.map((p: any) => ({
+          ...p,
+          questions: [],
+        })) || [],
+        actions: [
+          { label: '确认计划', action: 'confirm_plan' },
+          { label: '查看详情', action: 'view_plan_detail' },
+        ],
       }
+
+      messages.value.push({
+        id: `msg-${Date.now()}-card`,
+        role: 'ai',
+        content: `太棒了！已为萌萌准备好了 ${result.totalQuestions} 道练习题，可以开始学习啦！`,
+        type: 'card',
+        card,
+        plan: result.plan,
+        timestamp: new Date().toISOString(),
+      })
+    } else {
+      // 题库题目不足，显示提示
+      const topicNames = result.insufficientTopicKeys.map(k => k.replace('MA_', '').replace('EN_', '')).join('、')
+      messages.value.push({
+        id: `msg-${Date.now()}-warn`,
+        role: 'ai',
+        content: `哎呀，${result.insufficientTopicKeys.length} 个学习主题的题目还没准备好呢（${topicNames}）。别担心，这些内容很快就会上线！您可以先试试其他主题吗？`,
+        type: 'text',
+        timestamp: new Date().toISOString(),
+      })
     }
   } catch (error) {
+    // 移除 loading 消息
+    messages.value = messages.value.filter(m => m.id !== loadingMsgId)
+
     messages.value.push({
       id: `msg-${Date.now()}-error`,
       role: 'ai',
-      content: '抱歉，生成题目时发生了错误，请稍后重试。',
-      type: 'error',
+      content: '匹配题目时出了点小问题，请稍后再试一次~',
+      type: 'text',
       timestamp: new Date().toISOString(),
     })
-  } finally {
-    isGeneratingQuestions.value = false
   }
 }
 
 // 确认计划
 async function handleConfirmPlan(plan: LearningPlan) {
   try {
-    await confirmPlan({ planId: plan.id })
-    activePlan.value = plan
+    const resp = await confirmPlan({ planId: plan.id })
+    activePlan.value = resp.plan
     pendingPlan.value = null
 
     messages.value.push({
       id: `msg-${Date.now()}-success`,
       role: 'ai',
-      content: `太好了！${plan.duration} 天的${plan.subject === 'en' ? '英语' : '数学'}学习计划已经生效了。每天学习约 ${plan.estimatedMinutes} 分钟，加油！`,
+      content: `太好了！${resp.plan.duration} 天的${resp.plan.subject === 'en' ? '英语' : '数学'}学习计划已经生效了。每天学习约 ${resp.plan.estimatedMinutes} 分钟，加油！`,
       type: 'success',
       timestamp: new Date().toISOString(),
     })
@@ -165,7 +217,7 @@ async function handleConfirmPlan(plan: LearningPlan) {
     messages.value.push({
       id: `msg-${Date.now()}-error`,
       role: 'ai',
-      content: '确认计划时出错了，请稍后重试。',
+      content: '哎呀，确认计划时出了点小问题，请稍后再试一次~',
       type: 'error',
       timestamp: new Date().toISOString(),
     })
@@ -177,6 +229,10 @@ async function handleCancelPlan() {
   if (pendingPlan.value) {
     try {
       await cancelPlan({ planId: pendingPlan.value.id })
+      // 刷新计划列表
+      const { plans, activePlan: active } = await getParentPlans()
+      planHistory.value = plans
+      activePlan.value = active ?? null
     } catch {
       // 忽略错误
     }

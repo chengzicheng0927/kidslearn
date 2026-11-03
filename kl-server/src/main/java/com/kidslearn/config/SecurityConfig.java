@@ -4,6 +4,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -26,6 +27,16 @@ public class SecurityConfig {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
+    private final Environment environment;
+
+    public SecurityConfig(Environment environment) {
+        this.environment = environment;
+    }
+
+    private boolean isDevProfile() {
+        return java.util.Arrays.asList(environment.getActiveProfiles()).contains("dev");
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -33,18 +44,24 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> {
                 // 公开接口
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/invite/**").permitAll()
-                .requestMatchers("/api/idCard/validate").permitAll()
-                .requestMatchers("/api/children/profile").permitAll()
-                .requestMatchers("/api/children/activate").permitAll()
-                .requestMatchers("/actuator/**").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                auth.requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/api/invite/**").permitAll()
+                    .requestMatchers("/api/idCard/validate").permitAll()
+                    .requestMatchers("/api/children/profile").permitAll()
+                    .requestMatchers("/api/children/activate").permitAll()
+                    .requestMatchers("/actuator/**").permitAll()
+                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+
+                // dev 环境下 admin 接口免认证
+                if (isDevProfile()) {
+                    auth.requestMatchers("/api/admin/**").permitAll();
+                }
+
                 // 其他接口需要认证
-                .anyRequest().authenticated()
-            )
+                auth.anyRequest().authenticated();
+            })
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((request, response, authException) -> {
                     response.setStatus(HttpStatus.UNAUTHORIZED.value());

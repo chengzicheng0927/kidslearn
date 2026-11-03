@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import mdit from 'markdown-it'
 import TwemojiText from '../TwemojiText.vue'
 import ChatCard from './ChatCard.vue'
 import type { ParentMessage } from '../../types/parent'
@@ -14,6 +16,21 @@ const emit = defineEmits<{
 function handleCardAction(action: string) {
   emit('action', action, props.message)
 }
+
+const md = new mdit({
+  html: true,
+  linkify: true,
+  typographer: true,
+  breaks: true,
+})
+
+// 渲染 markdown（AI 消息支持 markdown 格式）
+const renderedContent = computed(() => {
+  if (props.message.role === 'parent') return props.message.content
+  // 预处理：确保表格前后有空行，防止合并
+  const processed = props.message.content.replace(/([^\n])\n\|/g, '$1\n\n|')
+  return md.render(processed)
+})
 </script>
 
 <template>
@@ -27,16 +44,17 @@ function handleCardAction(action: string) {
           <span></span>
           <span></span>
         </div>
+        <span class="thinking-text">{{ message.content || '正在思考...' }}</span>
       </div>
 
-      <!-- 计划生成中 -->
+      <!-- 计划/题目生成中 -->
       <div v-else-if="message.type === 'plan_loading'" class="plan-loading">
         <div class="loading-icon">
           <TwemojiText html="📋" tag="span" />
         </div>
         <div class="loading-text">
-          <span class="loading-title">正在生成学习计划</span>
-          <span class="loading-desc">正在为孩子量身定制题目，请稍候...</span>
+          <span class="loading-title">{{ message.content || '正在生成学习计划' }}</span>
+          <span class="loading-desc">请稍候...</span>
         </div>
         <div class="loading-progress">
           <div class="progress-bar">
@@ -65,9 +83,12 @@ function handleCardAction(action: string) {
       </div>
 
       <!-- 文本消息（默认） -->
-      <div v-else class="text-bubble ai">
-        {{ message.content }}
-      </div>
+      <TwemojiText
+        v-else
+        tag="div"
+        class="text-bubble ai"
+        :html="renderedContent"
+      />
     </template>
 
     <!-- 家长消息 -->
@@ -97,7 +118,7 @@ function handleCardAction(action: string) {
 }
 
 .text-bubble {
-  max-width: 260px;
+  max-width: 85%;
   padding: 10px 14px;
   border-radius: 12px;
   font-size: 15px;
@@ -110,6 +131,67 @@ function handleCardAction(action: string) {
   border: 1px solid #E8EDF2;
   border-radius: 12px;
   color: #1a1a2e;
+}
+
+/* Markdown Styles */
+:deep(p) {
+  margin: 6px 0;
+}
+
+:deep(p:first-child) {
+  margin-top: 0;
+}
+
+:deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(ul), :deep(ol) {
+  padding-left: 20px;
+  margin: 6px 0;
+}
+
+:deep(strong) {
+  font-weight: 700;
+}
+
+:deep(em) {
+  font-style: italic;
+}
+
+:deep(code) {
+  background: #e8edf2;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+:deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+:deep(th) {
+  background: #F0F2F5;
+  padding: 6px 8px;
+  border: 1px solid #E0E4E8;
+  text-align: left;
+  font-weight: 600;
+}
+
+:deep(td) {
+  padding: 6px 8px;
+  border: 1px solid #E0E4E8;
+}
+
+:deep(blockquote) {
+  margin: 8px 0;
+  padding: 6px 12px;
+  border-left: 3px solid #C4C9D4;
+  background: #F0F2F5;
+  border-radius: 0 6px 6px 0;
 }
 
 .text-bubble.parent {
@@ -147,13 +229,23 @@ function handleCardAction(action: string) {
   background: #F5F7FA;
   border: 1px solid #E8EDF2;
   border-radius: 12px;
-  padding: 14px 20px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
 }
 
 .thinking-dots {
   display: flex;
-  gap: 5px;
+  gap: 4px;
   align-items: center;
+}
+
+.thinking-text {
+  font-size: 13px;
+  color: #888;
+  animation: pulse-text 1.5s ease-in-out infinite;
 }
 
 .thinking-dots span {
@@ -188,6 +280,11 @@ function handleCardAction(action: string) {
     transform: translateY(-6px);
     opacity: 1;
   }
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 /* 计划生成中 */

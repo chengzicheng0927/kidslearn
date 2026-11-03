@@ -16,7 +16,7 @@ type View = 'loading' | 'onboarding' | 'chat'
 
 const currentView = ref<View>('loading')
 const appStore = useAppStore()
-const { child, showPasswordModal } = storeToRefs(appStore)
+const { showPasswordModal } = storeToRefs(appStore)
 const { setChild, openParentMode, closePasswordModal } = appStore
 const exitModal = ref<InstanceType<typeof ExitConfirmModal> | null>(null)
 const { toasts } = useToast()

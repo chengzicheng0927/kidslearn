@@ -196,7 +196,7 @@ describe('QuizCard', () => {
     expect(wrapper.findComponent(ResultModal).exists()).toBe(true)
     // wrong 模式渲染 explanation 字段（而非 explanationSteps）
     expect(document.body.textContent ?? '').toContain('因为 strawberry 顶部有绿色叶片')
-    expect(document.body.textContent ?? '').toContain('你已经抓到一半线索啦')
+    expect(wrapper.findComponent(ResultModal).props('encouragement')).toBe('你已经抓到一半线索啦，下次会更快找到答案。')
   })
 
   it('shows reward page instead of normal correct page when reward logic is hit', async () => {

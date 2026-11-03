@@ -7,7 +7,8 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public record AppProperties(
     QuizProperties quiz,
-    PlanProperties plan
+    PlanProperties plan,
+    BankGenerationProperties bankGeneration
 ) {
 
     /**
@@ -42,6 +43,23 @@ public record AppProperties(
         public PlanProperties {
             if (defaultDurationDays <= 0) defaultDurationDays = 14;
             if (defaultDifficulty == null) defaultDifficulty = "medium";
+        }
+    }
+
+    /**
+     * 题库预生成配置
+     */
+    public record BankGenerationProperties(
+        String cron,
+        int minWaterline,
+        int maxWaterline,
+        int defaultBatchCount
+    ) {
+        public BankGenerationProperties {
+            if (cron == null) cron = "0 0 3 * * ?";
+            if (minWaterline <= 0) minWaterline = 50;
+            if (maxWaterline <= minWaterline) maxWaterline = minWaterline * 2;
+            if (defaultBatchCount <= 0) defaultBatchCount = 50;
         }
     }
 }

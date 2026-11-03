@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import TwemojiText from '../TwemojiText.vue'
-import { getPlanDetail, type PlanDetailResponse } from '../../services/api'
+import { getPlanDetail } from '../../services/api'
+import type { PlanDetailResponse } from '../../services/api.interface'
 
 const props = defineProps<{
   planId: string
@@ -31,6 +32,13 @@ onMounted(async () => {
 })
 
 const isCompleted = computed(() => planDetail.value?.status === 'completed')
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${month}-${day}`
+}
 
 function togglePhase(index: number) {
   if (expandedPhases.value.has(index)) {
@@ -73,7 +81,7 @@ function removeQuestion(phaseIndex: number, questionId: string) {
         <div class="modal-header">
           <div class="modal-title">
             <TwemojiText html="📋" />
-            <span v-if="planDetail">{{ planDetail.durationDays }}天{{ planDetail.subject === 'en' ? '英语' : '数学' }}学习计划</span>
+            <span v-if="planDetail">{{ formatDate(planDetail.createdAt) }} {{ planDetail.durationDays }}天{{ planDetail.subject === 'en' ? '英语' : '数学' }}学习计划</span>
             <span v-else>计划详情</span>
           </div>
           <button class="close-btn" @click="emit('close')">

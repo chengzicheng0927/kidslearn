@@ -38,8 +38,8 @@ import {
 
 const activeSubject = ref<'en' | 'ma'>('en')
 const appStore = useAppStore()
-const { child, quizSession, achievementState, setPetEmotion, teacherName, dailyTasks, syncCalendar, calendarData, todayStars, todayMaxStars } = appStore
-const { showPasswordModal, showParentMode } = storeToRefs(appStore)
+const { child, quizSession, achievementState, setPetEmotion, teacherName, dailyTasks, syncCalendar } = appStore
+const { showParentMode } = storeToRefs(appStore)
 const { openPasswordModal } = appStore
 
 // 小星老师表情状态
@@ -346,11 +346,11 @@ function handleClearSession() {
   saveSubjectRecord(fresh)
   quizComplete.value = false
   // 重置题目索引（关键！否则清空后无法获取新题目）
-  quizSession.value.currentQuestionIndex = 0
+  quizSession.currentQuestionIndex = 0
   // 重置连击
-  quizSession.value.combo = 0
-  quizSession.value.correctCount = 0
-  quizSession.value.answeredCount = 0
+  quizSession.combo = 0
+  quizSession.correctCount = 0
+  quizSession.answeredCount = 0
   // 重置每日任务进度（今日答题数、今日星星）
   dailyTasks.enDone = 0
   dailyTasks.maDone = 0

@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAppStore } from '../stores/appStore'
-import TwemojiText from './TwemojiText.vue'
 
 const props = defineProps<{
   isCorrect: boolean
@@ -28,7 +27,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useAppStore()
-const { child, todayStars, todayMaxStars } = storeToRefs(store)
+const { child } = storeToRefs(store)
 
 const isExplaining = ref(false)
 
@@ -93,7 +92,7 @@ const resolvedMode = computed(() => {
 const isReward = computed(() => resolvedMode.value === 'reward')
 const isWrong = computed(() => resolvedMode.value === 'wrong')
 const isCorrect = computed(() => resolvedMode.value === 'correct')
-const childName = computed(() => child?.name ?? '小朋友')
+const childName = computed(() => child.value?.name ?? '小朋友')
 const actionLabel = computed(() => (isWrong.value ? '继续' : '继续下一题'))
 const titleText = computed(() => {
   if (isReward.value) return `太棒了${childName.value}！`

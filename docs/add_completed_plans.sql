@@ -14,7 +14,7 @@ INSERT INTO learning_plans (
     created_at, updated_at
 ) VALUES (
     'd1000001-0001-0001-0001-000000000003',
-    '3b9e1dda-7ea4-4200-b311-f11cee9836f5',
+    '48f36581-db8a-4ade-a9db-415fe1327a39',
     'en',
     'completed',
     'easy',
@@ -44,7 +44,7 @@ INSERT INTO learning_plans (
     created_at, updated_at
 ) VALUES (
     'd1000001-0001-0001-0001-000000000004',
-    '3b9e1dda-7ea4-4200-b311-f11cee9836f5',
+    '48f36581-db8a-4ade-a9db-415fe1327a39',
     'ma',
     'completed',
     'medium',
@@ -74,7 +74,7 @@ INSERT INTO learning_plans (
     created_at, updated_at
 ) VALUES (
     'd1000001-0001-0001-0001-000000000005',
-    '3b9e1dda-7ea4-4200-b311-f11cee9836f5',
+    '48f36581-db8a-4ade-a9db-415fe1327a39',
     'en',
     'completed',
     'easy',

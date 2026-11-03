@@ -20,7 +20,7 @@ onMounted(async () => {
   loading.value = false
 })
 
-async function save(key: keyof ParentSettings, value: unknown) {
+async function save(key: keyof ParentSettings | 'eyeCareReminder' | 'breakReminder', value: unknown) {
   if (!settings.value || saving.value) return
   saving.value = true
   const updated = await updateParentSettings({ [key]: value })

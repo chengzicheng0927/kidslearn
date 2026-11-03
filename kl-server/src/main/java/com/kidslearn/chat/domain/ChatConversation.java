@@ -42,6 +42,9 @@ public class ChatConversation {
     @Column(name = "tool_results", columnDefinition = "jsonb")
     private Object toolResults;
 
+    @Column(name = "conversation_id", length = 50)
+    private String conversationId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

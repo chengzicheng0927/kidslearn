@@ -13,6 +13,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'removeQuestion', planId: string, phaseIndex: number, questionId: string): void
+  (e: 'confirmPlan', plan: LearningPlan): void
+  (e: 'generateQuestions', plan: LearningPlan): void
+  (e: 'cancelPlan', plan: LearningPlan): void
+  (e: 'viewProgress', plan: LearningPlan): void
+  (e: 'pausePlan', plan: LearningPlan): void
+  (e: 'resumePlan', plan: LearningPlan): void
 }>()
 
 const currentIndex = ref(props.initialIndex ?? 0)
@@ -40,9 +46,30 @@ function goNext() {
 }
 
 function handleCardAction(action: string) {
-  if (action === 'view_plan_detail' && currentPlan.value) {
-    detailPlanId.value = currentPlan.value.id
-    showDetailModal.value = true
+  if (!currentPlan.value) return
+  switch (action) {
+    case 'view_plan_detail':
+      detailPlanId.value = currentPlan.value.id
+      showDetailModal.value = true
+      break
+    case 'confirm_plan':
+      emit('confirmPlan', currentPlan.value)
+      break
+    case 'generate_questions':
+      emit('generateQuestions', currentPlan.value)
+      break
+    case 'cancel_plan':
+      emit('cancelPlan', currentPlan.value)
+      break
+    case 'view_progress':
+      emit('viewProgress', currentPlan.value)
+      break
+    case 'pause_plan':
+      emit('pausePlan', currentPlan.value)
+      break
+    case 'resume_plan':
+      emit('resumePlan', currentPlan.value)
+      break
   }
 }
 
@@ -53,6 +80,13 @@ function handleRemoveQuestion(phaseIndex: number, questionId: string) {
   showDetailModal.value = false
 }
 
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${month}-${day}`
+}
+
 function isCompleted(plan: LearningPlan): boolean {
   return plan.status === 'completed'
 }
@@ -61,7 +95,7 @@ function isCompleted(plan: LearningPlan): boolean {
 function toChatCard(plan: LearningPlan) {
   return {
     style: 'plan' as const,
-    title: `${plan.duration}天${plan.subject === 'en' ? '英语' : '数学'}学习计划`,
+    title: `${formatDate(plan.createdAt)} ${plan.duration}天${plan.subject === 'en' ? '英语' : '数学'}学习计划`,
     icon: plan.subject === 'en' ? '📚' : '🔢',
     rows: [
       { label: '周期', value: `${plan.duration}天` },
@@ -73,6 +107,7 @@ function toChatCard(plan: LearningPlan) {
       topic: p.topic,
       questionsPerDay: p.questionsPerDay,
       difficulty: p.difficulty,
+      questions: p.questions,
     })),
     actions: getActions(plan.status),
   }
@@ -102,15 +137,15 @@ function getActions(status: string) {
   const actions = []
   if (status === 'pending') {
     actions.push({ label: '确认计划', action: 'confirm_plan' })
-    actions.push({ label: '调整', action: 'adjust_plan' })
+    actions.push({ label: '生成题目', action: 'generate_questions' })
     actions.push({ label: '取消', action: 'cancel_plan' })
   } else if (status === 'active') {
     actions.push({ label: '查看详情', action: 'view_plan_detail' })
-    actions.push({ label: '调整', action: 'adjust_plan' })
+    actions.push({ label: '查看进度', action: 'view_progress' })
     actions.push({ label: '暂停', action: 'pause_plan' })
   } else if (status === 'paused') {
     actions.push({ label: '查看详情', action: 'view_plan_detail' })
-    actions.push({ label: '调整', action: 'adjust_plan' })
+    actions.push({ label: '查看进度', action: 'view_progress' })
     actions.push({ label: '恢复', action: 'resume_plan' })
   } else if (status === 'completed') {
     actions.push({ label: '查看详情', action: 'view_plan_detail' })

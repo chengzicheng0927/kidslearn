@@ -3,11 +3,14 @@ package com.kidslearn.report.service;
 import com.kidslearn.common.exception.BusinessException;
 import com.kidslearn.content.domain.PlanQuestion;
 import com.kidslearn.content.domain.Question;
+import com.kidslearn.content.dto.QuestionBankDTO;
 import com.kidslearn.content.repository.PlanQuestionRepository;
 import com.kidslearn.content.repository.QuestionRepository;
+import com.kidslearn.content.service.QuestionBankService;
 import com.kidslearn.report.domain.LearningPlan;
 import com.kidslearn.report.dto.PlanDetailDTO;
 import com.kidslearn.report.repository.LearningPlanRepository;
+import com.kidslearn.user.repository.ChildRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -34,6 +38,9 @@ class PlanServiceTest {
     @Mock private LearningPlanRepository planRepository;
     @Mock private QuestionRepository questionRepository;
     @Mock private PlanQuestionRepository planQuestionRepository;
+    @Mock private ChildRepository childRepository;
+    @Mock private ObjectProvider<QuestionBankService> questionBankServiceProvider;
+    @Mock private QuestionBankService questionBankService;
 
     @InjectMocks
     private PlanService planService;
@@ -62,9 +69,16 @@ class PlanServiceTest {
         return q;
     }
 
+    private void stubInsufficientQuestionBank() {
+        when(questionBankServiceProvider.getObject()).thenReturn(questionBankService);
+        when(questionBankService.assignQuestionsFromBank(planId, childId, "二年级", "en", List.of()))
+            .thenReturn(new QuestionBankDTO.AssignResult(0, 1, List.of(), false, "题库暂无可用题目"));
+    }
+
     @Test
     void confirmPlan_assignsQuestionsToDates() {
         // Arrange
+        stubInsufficientQuestionBank();
         LearningPlan plan = mockPlan("pending");
         when(planRepository.findById(planId)).thenReturn(java.util.Optional.of(plan));
         when(planRepository.save(any(LearningPlan.class))).thenAnswer(i -> i.getArgument(0));
@@ -115,6 +129,7 @@ class PlanServiceTest {
     @Test
     void confirmPlan_noQuestionsAvailable_stillSucceeds() {
         // Arrange
+        stubInsufficientQuestionBank();
         LearningPlan plan = mockPlan("pending");
         when(planRepository.findById(planId)).thenReturn(java.util.Optional.of(plan));
         when(planRepository.save(any(LearningPlan.class))).thenAnswer(i -> i.getArgument(0));

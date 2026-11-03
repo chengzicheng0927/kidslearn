@@ -25,7 +25,7 @@ import {
   type StudyDayData,
   type StudySubjectRecord,
 } from '../mock/data'
-import { getAchievements, getBadges, getPetState, getMonthCalendar, feedPet as apiFeedPet } from '../services/api'
+import { getAchievements, getBadges, getPetState, getMonthCalendar, getCalendarStats, feedPet as apiFeedPet } from '../services/api'
 
 const TEACHER_NAME_KEY = 'kidslearn_teacher_name'
 const MOCK_CHILD_KEY = 'kidslearn_mock_child'
@@ -84,6 +84,10 @@ export const useAppStore = defineStore('app', () => {
   const calendarData = ref<Record<string, MonthData>>(
     API_CONFIG.USE_MOCK ? createInitialCalendarData() : {}
   )
+  const calendarStats = ref<{
+    totalDays: number; totalMinutes: number; totalQuestions: number;
+    totalStars: number; currentStreak: number; longestStreak: number;
+  } | null>(null)
   const petState = ref<PetState>(createInitialPetState())
   const teacherName = ref<string>(localStorage.getItem(TEACHER_NAME_KEY) ?? '小星老师')
   const quizSession = ref<QuizSessionState>({
@@ -412,6 +416,14 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  async function syncCalendarStats(childId: string, year: number, month: number) {
+    try {
+      calendarStats.value = await getCalendarStats(childId, year, month)
+    } catch (e) {
+      console.error('CALENDAR_STATS_FAIL', e)
+    }
+  }
+
   /**
    * 喂食宠物
    * 业务逻辑全部由后端处理，前端仅同步状态
@@ -421,7 +433,7 @@ export const useAppStore = defineStore('app', () => {
     if (!childId) return false
 
     try {
-      const resp = await apiFeedPet(childId, item.id)
+      const resp = await apiFeedPet(childId, item.name)
       if (!resp.success) return false
 
       // 用后端返回值同步星星（后端已扣减）
@@ -461,6 +473,8 @@ export const useAppStore = defineStore('app', () => {
     childStreak,
     childTodayMinutes,
     calendarData,
+    calendarStats,
+    syncCalendarStats,
     petState,
     petEvolutions,
     petFoodItems,

@@ -40,13 +40,13 @@ public class CalendarService {
 
             List<MonthCalendarResponse.StudySubjectRecordDTO> subjects = dayRecords.stream()
                 .map(r -> new MonthCalendarResponse.StudySubjectRecordDTO(
-                    "en".equals(r.getSubject()) ? "🇬🇧" : "🔢",
-                    "en".equals(r.getSubject()) ? "英语" : "数学",
+                    getSubjectIcon(r.getSubject()),
+                    getSubjectName(r.getSubject()),
                     r.getTopic(),
                     r.getStarsEarned(),
                     r.getAccuracy() != null ? r.getAccuracy().intValue() : 0,
-                    "en".equals(r.getSubject()) ? "#4A90D9" : "#7B61FF",
-                    "en".equals(r.getSubject()) ? "#E8F0FE" : "#F0ECFF"
+                    getSubjectColor(r.getSubject()),
+                    getSubjectBg(r.getSubject())
                 ))
                 .toList();
 
@@ -59,27 +59,22 @@ public class CalendarService {
     public CalendarStatsDTO getCalendarStats(UUID childId, int year, int month) {
         LocalDate start = LocalDate.of(year, month, 1);
         LocalDate end = start.plusMonths(1).minusDays(1);
-        LocalDate today = LocalDate.now();
 
         List<StudyRecord> records = studyRecordRepository
             .findByChildIdAndRecordDateBetween(childId, start, end);
 
+        Set<LocalDate> studyDates = records.stream()
+            .map(StudyRecord::getRecordDate)
+            .collect(Collectors.toSet());
+        int totalDays = studyDates.size();
+        int totalMinutes = records.stream().mapToInt(StudyRecord::getMinutes).sum();
         int totalQuestions = records.stream().mapToInt(StudyRecord::getQuestionCount).sum();
         int totalStars = records.stream().mapToInt(StudyRecord::getStarsEarned).sum();
 
-        // 今日数据
-        int todayTotal = 0, todayCorrect = 0;
-        for (StudyRecord r : records) {
-            if (r.getRecordDate().equals(today)) {
-                todayTotal += r.getQuestionCount();
-                todayCorrect += r.getCorrectCount();
-            }
-        }
-
-        // 计算连续学习天数
         int currentStreak = calculateStreak(childId);
+        int longestStreak = calculateLongestStreak(childId);
 
-        return new CalendarStatsDTO(totalQuestions, currentStreak, currentStreak, todayCorrect, todayTotal, totalStars);
+        return new CalendarStatsDTO(totalDays, totalMinutes, totalQuestions, totalStars, currentStreak, longestStreak);
     }
 
     private int calculateStreak(UUID childId) {
@@ -100,11 +95,76 @@ public class CalendarService {
         return streak;
     }
 
+    public DayStudyDetailResponse getDayStudyDetail(UUID childId, LocalDate date) {
+        List<StudyRecord> records = studyRecordRepository.findByChildIdAndRecordDate(childId, date);
+
+        int totalMinutes = records.stream().mapToInt(StudyRecord::getMinutes).sum();
+        int totalQuestions = records.stream().mapToInt(StudyRecord::getQuestionCount).sum();
+        int correctCount = records.stream().mapToInt(StudyRecord::getCorrectCount).sum();
+        int accuracy = totalQuestions > 0 ? Math.round((float) correctCount / totalQuestions * 100) : 0;
+        int streak = calculateStreak(childId);
+
+        List<MonthCalendarResponse.StudySubjectRecordDTO> subjects = records.stream()
+            .map(r -> new MonthCalendarResponse.StudySubjectRecordDTO(
+                getSubjectIcon(r.getSubject()),
+                getSubjectName(r.getSubject()),
+                r.getTopic(),
+                r.getStarsEarned(),
+                r.getAccuracy() != null ? r.getAccuracy().intValue() : 0,
+                getSubjectColor(r.getSubject()),
+                getSubjectBg(r.getSubject())
+            ))
+            .toList();
+
+        return new DayStudyDetailResponse(date.toString(), totalMinutes, totalQuestions, correctCount, accuracy, streak, subjects);
+    }
+
+    private int calculateLongestStreak(UUID childId) {
+        List<StudyRecord> recent = studyRecordRepository.findRecentByChildId(
+            childId, LocalDate.now().minusDays(365)
+        );
+
+        List<LocalDate> sortedDates = recent.stream()
+            .map(StudyRecord::getRecordDate)
+            .distinct()
+            .sorted()
+            .toList();
+
+        if (sortedDates.isEmpty()) return 0;
+
+        int longest = 1, current = 1;
+        for (int i = 1; i < sortedDates.size(); i++) {
+            if (sortedDates.get(i).minusDays(1).equals(sortedDates.get(i - 1))) {
+                current++;
+                longest = Math.max(longest, current);
+            } else {
+                current = 1;
+            }
+        }
+        return longest;
+    }
+
     private int calculateHeat(int minutes) {
         if (minutes <= 0) return 0;
         if (minutes <= 15) return 1;
         if (minutes <= 30) return 2;
         if (minutes <= 60) return 3;
         return 4;
+    }
+
+    private String getSubjectIcon(String subject) {
+        return "en".equals(subject) ? "📖" : "🔢";
+    }
+
+    private String getSubjectName(String subject) {
+        return "en".equals(subject) ? "英语" : "数学";
+    }
+
+    private String getSubjectColor(String subject) {
+        return "en".equals(subject) ? "#40C4FF" : "#69F0AE";
+    }
+
+    private String getSubjectBg(String subject) {
+        return "en".equals(subject) ? "rgba(64,196,255,.12)" : "rgba(105,240,174,.12)";
     }
 }

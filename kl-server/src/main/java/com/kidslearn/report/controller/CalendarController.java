@@ -6,6 +6,7 @@ import com.kidslearn.report.service.CalendarService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +23,14 @@ public class CalendarController {
         @PathVariable int month
     ) {
         return ApiResponse.ok(calendarService.getMonthCalendar(childId, year, month));
+    }
+
+    @GetMapping("/daily/{date}")
+    public ApiResponse<DayStudyDetailResponse> getDayStudyDetail(
+        @PathVariable UUID childId,
+        @PathVariable LocalDate date
+    ) {
+        return ApiResponse.ok(calendarService.getDayStudyDetail(childId, date));
     }
 
     @GetMapping("/stats")

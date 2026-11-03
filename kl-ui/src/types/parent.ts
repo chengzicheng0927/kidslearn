@@ -9,6 +9,7 @@ export interface PlanPhase {
   topic: string           // 主题（如：动物、水果）
   questionsPerDay: number // 每日题目数
   difficulty: 'easy' | 'medium' | 'hard'
+  questions?: QuestionDetail[]  // 该阶段的题目
 }
 
 /**
@@ -26,6 +27,7 @@ export interface LearningPlan {
   createdAt: string
   startedAt?: string
   endedAt?: string
+  currentPhaseIndex: number  // 当前阶段索引（从0开始）
 }
 
 /**
@@ -120,4 +122,5 @@ export interface ParentChatResponse {
   plan?: LearningPlan
   planAction?: 'confirm' | 'adjust' | 'cancel'
   thinking?: boolean
+  conversationId?: string
 }

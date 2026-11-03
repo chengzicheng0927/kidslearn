@@ -143,6 +143,7 @@ export interface PlanDetailResponse {
   totalCompleted: number
   totalCorrect: number
   accuracy: number
+  createdAt: string
 }
 
 export interface PlanPhaseDetail {

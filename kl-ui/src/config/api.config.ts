@@ -14,8 +14,8 @@ export const API_CONFIG = {
   /** 真实后端 API 地址（生产模式） */
   API_BASE_URL: 'http://localhost:8080',
 
-  /** API 请求超时时间（毫秒） */
-  TIMEOUT: 30_000,
+  /** API 请求超时时间（毫秒） - 提高默认值到 1分钟 */
+  TIMEOUT: 60_000,
 
   /** 是否开启请求日志 */
   DEBUG: true,

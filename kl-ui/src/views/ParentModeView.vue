@@ -5,7 +5,7 @@ import ParentInputBar from '../components/ParentMode/ParentInputBar.vue'
 import ParentSettingsModal from '../components/ParentMode/ParentSettingsModal.vue'
 import PlanHistoryPanel from '../components/ParentMode/PlanHistoryPanel.vue'
 import { useParentState } from '../composables/useParentState'
-import { removeQuestionFromPlan } from '../services/api'
+import { removeQuestionFromPlan, pausePlan, resumePlan } from '../services/api'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -35,6 +35,8 @@ const historyPlans = computed(() => {
 })
 
 onMounted(async () => {
+  // 进入页面时重置为新对话
+  resetParentState()
   await initParentState()
 })
 
@@ -46,18 +48,8 @@ function handleSend(message: string) {
   sendMessage(message)
 }
 
-function handleSuggestion(text: string) {
-  sendMessage(text)
-}
-
-function handleConfirmPlanClick() {
-  if (pendingPlan.value) {
-    handleConfirmPlan(pendingPlan.value)
-  }
-}
-
-function handleCancelPlanClick() {
-  handleCancelPlan()
+function handleSuggestion(text: string, subject?: 'en' | 'ma') {
+  sendMessage(text, false, subject ? { subject } : undefined)
 }
 
 function handleExit() {
@@ -83,13 +75,25 @@ function handleCardAction(action: string, message: any) {
       console.log('查看计划详情', message.plan)
       break
     case 'confirm_generate_questions':
-      // 用户确认计划，开始生成题目
+    case 'generate_questions':
+      // 生成/匹配题目
       if (message.plan) {
         handleGenerateQuestions(message.plan)
       }
       break
     case 'confirm_plan':
       if (message.plan) {
+        const hasQuestions = message.plan.phases?.some((p: any) => p.questions && p.questions.length > 0)
+        if (!hasQuestions) {
+          // 没题目，提示用户
+          alert('当前计划还没有题目，请先点击"生成题目"')
+          return
+        }
+        // 检查是否有进行中的同科目计划
+        if (activePlan.value && activePlan.value.subject === message.plan.subject) {
+          alert('已有进行中的' + (message.plan.subject === 'en' ? '英语' : '数学') + '学习计划，不能重复确认')
+          return
+        }
         handleConfirmPlan(message.plan)
       }
       break
@@ -102,6 +106,50 @@ function handleCardAction(action: string, message: any) {
       break
     default:
       console.log('未知动作', action)
+  }
+}
+
+// 历史计划面板的按钮处理
+async function handleHistoryPlanAction(action: string, plan: any) {
+  switch (action) {
+    case 'confirm_plan':
+      const hasQuestions = plan.phases?.some((p: any) => p.questions && p.questions.length > 0)
+      if (!hasQuestions) {
+        alert('当前计划还没有题目，请先点击"生成题目"')
+        return
+      }
+      if (activePlan.value && activePlan.value.subject === plan.subject) {
+        alert('已有进行中的' + (plan.subject === 'en' ? '英语' : '数学') + '学习计划，不能重复确认')
+        return
+      }
+      handleConfirmPlan(plan)
+      break
+    case 'generate_questions':
+      handleGenerateQuestions(plan)
+      break
+    case 'cancel_plan':
+      pendingPlan.value = plan
+      handleCancelPlan()
+      break
+    case 'view_progress':
+      console.log('查看进度', plan)
+      break
+    case 'pause_plan':
+      try {
+        await pausePlan({ planId: plan.id })
+        await initParentState()
+      } catch {
+        alert('暂停计划失败，请稍后重试')
+      }
+      break
+    case 'resume_plan':
+      try {
+        await resumePlan({ planId: plan.id })
+        await initParentState()
+      } catch {
+        alert('恢复计划失败，请稍后重试')
+      }
+      break
   }
 }
 </script>
@@ -134,7 +182,7 @@ function handleCardAction(action: string, message: any) {
         <div v-if="activePlan" class="active-plan-banner">
           <span class="banner-icon">📋</span>
           <span class="banner-text">
-            当前计划：{{ activePlan.duration }}天{{ activePlan.subject === 'en' ? '英语' : '数学' }}学习 · 第{{ activePlan.phases.length }}阶段
+            当前计划：{{ activePlan.duration }}天{{ activePlan.subject === 'en' ? '英语' : '数学' }}学习 · 第{{ (activePlan.currentPhaseIndex || 0) + 1 }}阶段
           </span>
           <button
             class="expand-btn"
@@ -152,6 +200,12 @@ function handleCardAction(action: string, message: any) {
             :plan-history="historyPlans"
             @close="showPlanHistory = false"
             @remove-question="handleRemoveQuestion"
+            @confirm-plan="(plan) => handleHistoryPlanAction('confirm_plan', plan)"
+            @generate-questions="(plan) => handleHistoryPlanAction('generate_questions', plan)"
+            @cancel-plan="(plan) => handleHistoryPlanAction('cancel_plan', plan)"
+            @view-progress="(plan) => handleHistoryPlanAction('view_progress', plan)"
+            @pause-plan="(plan) => handleHistoryPlanAction('pause_plan', plan)"
+            @resume-plan="(plan) => handleHistoryPlanAction('resume_plan', plan)"
           />
         </Transition>
 

@@ -11,4 +11,6 @@ public interface LearningPlanRepository extends JpaRepository<LearningPlan, UUID
     List<LearningPlan> findByChildIdOrderByCreatedAtDesc(UUID childId);
 
     List<LearningPlan> findByChildIdAndStatus(UUID childId, String status);
+
+    List<LearningPlan> findByChildIdAndStatusNotOrderByCreatedAtDesc(UUID childId, String status);
 }

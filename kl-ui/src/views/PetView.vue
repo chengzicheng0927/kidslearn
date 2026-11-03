@@ -8,7 +8,7 @@ import { useAppStore } from '../stores/appStore'
 import { PET_ARENA_DECO, mockPetEvolutions, mockPetFoodItems, mockKnowledgeBadges, mockAchievements, type PetFoodItem, type PetEmotion } from '../mock/data'
 
 const appStore = useAppStore()
-const { child, petState, petEvolutions, petFoodItems, badgeState, badgeDefinitions, achievementState, achievementDefinitions } = storeToRefs(appStore)
+const { child, petState, petEvolutions, petFoodItems, badgeDefinitions, achievementDefinitions } = storeToRefs(appStore)
 const { feedPet, setPetEmotion, syncAchievements, syncBadges, syncPetState } = appStore
 
 // Defensive: fall back to mock data if store refs not yet initialized
@@ -41,7 +41,7 @@ const slots = computed(() => {
       hasPet,
       evo: hasPet ? evolutions.value[petIndex] : null,
       deco: hasPet ? PET_ARENA_DECO[petIndex] : null,
-      isCurrent: hasPet && petIndex === petState.evolutionIndex,
+      isCurrent: hasPet && petIndex === petState.value.evolutionIndex,
       progressText: hasPet ? `${totalAnswered}/${stageTotalQuestions}` : '',
     }
   })

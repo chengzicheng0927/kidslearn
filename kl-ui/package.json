@@ -12,6 +12,8 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "markdown-it": "^14.1.1",
     "pinia": "^3.0.4",
     "twemoji": "^14.0.2",
     "vue": "^3.4.21"

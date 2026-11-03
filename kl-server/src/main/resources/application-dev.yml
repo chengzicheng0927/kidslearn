@@ -34,4 +34,4 @@ llm:
 logging:
   level:
     com.kidslearn: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.hibernate.SQL: WARN

@@ -78,6 +78,11 @@ app:
   plan:
     default-duration-days: 14
     default-difficulty: medium
+  bank-generation:
+    cron: "0 0 3 * * ?"
+    min-waterline: 50
+    max-waterline: 100
+    default-batch-count: 50
 
 # ========== JWT ==========
 jwt:

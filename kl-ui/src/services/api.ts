@@ -29,11 +29,10 @@ import type {
   CancelPlanRequest, CancelPlanResponse,
   // 聊天相关
   ParentChatRequest, ParentChatResponse,
-  GenerateQuestionsRequest, GenerateQuestionsResponse,
+  GenerateQuestionsResponse,
   PlanDetailResponse,
   // 设置相关
-  UpdateParentSettingsRequest, UpdateParentSettingsResponse,
-  GetParentSettingsResponse,
+  UpdateParentSettingsRequest,
   // 设备相关
   DeviceRegisterRequest, DeviceRegisterResponse,
   PrefetchMessageResponse,
@@ -111,7 +110,8 @@ async function request<T>(
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT)
+  const timeoutMs = (options as any).timeout ?? API_CONFIG.TIMEOUT
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const response = await fetch(url, {
@@ -584,7 +584,7 @@ export async function getNextQuestion(
     explanationSteps: [],
     encouragement: '',
     estimatedMinutes: resp.question.estimatedMinutes,
-    reward: { stars: 2, xp: 20 },
+    reward: { stars: 2, xp: 20, xpNeeded: 100, level: 1 },
   } : null
 
   return { question, summary }
@@ -754,6 +754,7 @@ export async function getPlanDetail(planId: string): Promise<PlanDetailResponse>
       totalCompleted: 35,
       totalCorrect: 30,
       accuracy: 85.7,
+      createdAt: '2026-03-10',
     }
   }
 
@@ -826,6 +827,7 @@ export async function confirmPlan(req: ConfirmPlanRequest): Promise<ConfirmPlanR
       difficulty: 'easy',
       estimatedMinutes: 20,
       status: 'active',
+      currentPhaseIndex: 0,
       createdAt: new Date().toISOString(),
       startedAt: new Date().toISOString().split('T')[0],
     }
@@ -937,18 +939,20 @@ export async function cancelPlan(req: CancelPlanRequest): Promise<CancelPlanResp
 export async function sendParentChat(
   message: string,
   planId?: string,
-  conversationId?: string
+  conversationId?: string,
+  context?: { childId?: string; childAge?: number; subject?: 'en' | 'ma' }
 ): Promise<ParentMessage> {
   if (API_CONFIG.USE_MOCK) {
     const { mockSendParentChat } = await import('../mock/parentData')
     return mockSendParentChat(message, planId, conversationId)
   }
 
-  const req: ParentChatRequest = { message, planId, conversationId }
+  const req: ParentChatRequest = { message, planId, conversationId, context }
   const resp = await request<ParentChatResponse>('/api/parent/chat', {
     method: 'POST',
     body: JSON.stringify(req),
-  })
+    timeout: 180000,
+  } as any)
 
   return {
     id: `msg-${Date.now()}`,
@@ -987,6 +991,39 @@ export async function generateQuestions(
     plan: resp.plan,
     card: resp.card,
     reply: resp.reply,
+  }
+}
+
+/**
+ * 从题库匹配生成题目
+ * POST /api/parent/plan/{planId}/generate-questions
+ */
+export async function generateQuestionsFromBank(
+  planId: string
+): Promise<{
+  plan: import('../types/parent').LearningPlan
+  assignedCount: number
+  success: boolean
+  insufficientTopicKeys: string[]
+  message: string
+  totalQuestions: number
+}> {
+  if (API_CONFIG.USE_MOCK) {
+    const { mockGenerateQuestions } = await import('../mock/parentData')
+    return mockGenerateQuestions(planId) as any
+  }
+
+  const resp = await request<any>(`/api/parent/plan/${planId}/generate-questions`, {
+    method: 'POST',
+  })
+
+  return {
+    plan: resp.plan,
+    assignedCount: resp.assignedCount,
+    success: resp.success,
+    insufficientTopicKeys: resp.insufficientTopicKeys || [],
+    message: resp.message,
+    totalQuestions: resp.totalQuestions,
   }
 }
 
@@ -1172,6 +1209,35 @@ export async function getDayStudyDetail(
     `/api/children/${childId}/calendar/daily/${date}`
   )
   return resp?.day ?? null
+}
+
+/**
+ * 获取日历统计数据（用于日历页顶部统计栏）
+ * GET /api/children/{childId}/calendar/stats?year=&month=
+ */
+export async function getCalendarStats(
+  childId: string,
+  year: number,
+  month: number
+): Promise<import('./api.interface').GetCalendarStatsResponse> {
+  if (API_CONFIG.USE_MOCK) {
+    await sleep(150)
+    const { createInitialCalendarData } = await import('../mock/data')
+    const allData = createInitialCalendarData()
+    const key = `${year}-${month}`
+    const monthData: MonthData = allData[key] || {}
+    const days: StudyDayData[] = Object.values(monthData)
+    return {
+      totalDays: Object.keys(monthData).length,
+      totalMinutes: days.reduce((sum, d) => sum + d.minutes, 0),
+      totalQuestions: days.reduce((sum, d) => sum + d.subjects.reduce((s, sub) => s + Math.round(sub.stars * 2.5), 0), 0),
+      totalStars: days.reduce((sum, d) => sum + d.subjects.reduce((s, sub) => s + sub.stars, 0), 0),
+      currentStreak: 3,
+      longestStreak: 7,
+    }
+  }
+
+  return request(`/api/children/${childId}/calendar/stats?year=${year}&month=${month}`)
 }
 
 // ============================================================

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import TwemojiText from '../components/TwemojiText.vue'
 import { useAppStore, getSelectedStudyDay } from '../stores/appStore'
 import { DAYS, MONTHS, MONTH_DAYS } from '../mock/data'
@@ -8,13 +9,18 @@ const now = new Date()
 const currentYear = ref(now.getFullYear())
 const currentMonth = ref(now.getMonth() + 1)
 const selectedDay = ref(now.getDate())
-const { child, calendarData, syncCalendar } = useAppStore()
+const appStore = useAppStore()
+const { child, calendarData, calendarStats } = storeToRefs(appStore)
+const { syncCalendar, syncCalendarStats } = appStore
 
 // 初始化时从 API 加载当月数据
 onMounted(async () => {
   const childId = child.value?.id
   if (childId) {
-    await syncCalendar(childId, currentYear.value, currentMonth.value)
+    await Promise.all([
+      syncCalendar(childId, currentYear.value, currentMonth.value),
+      syncCalendarStats(childId, currentYear.value, currentMonth.value),
+    ])
   }
 })
 
@@ -22,7 +28,10 @@ onMounted(async () => {
 // 等 child 加载完成后立即同步日历数据（仅执行一次）
 watch(() => child.value?.id, async (childId) => {
   if (childId) {
-    await syncCalendar(childId, currentYear.value, currentMonth.value)
+    await Promise.all([
+      syncCalendar(childId, currentYear.value, currentMonth.value),
+      syncCalendarStats(childId, currentYear.value, currentMonth.value),
+    ])
   }
 }, { immediate: false })
 
@@ -30,16 +39,16 @@ watch(() => child.value?.id, async (childId) => {
 watch([currentYear, currentMonth], async ([newYear, newMonth]) => {
   const childId = child.value?.id
   if (childId) {
-    await syncCalendar(childId, newYear, newMonth)
+    await Promise.all([
+      syncCalendar(childId, newYear, newMonth),
+      syncCalendarStats(childId, newYear, newMonth),
+    ])
   }
 })
 
-const streak = computed(() => child?.streak ?? 0)
-const totalStars = computed(() => child?.stars ?? 0)
-const monthStudyDays = computed(() => {
-  const key = `${currentYear.value}-${currentMonth.value}`
-  return Object.keys(calendarData[key] || {}).length
-})
+const streak = computed(() => calendarStats.value?.currentStreak ?? 0)
+const totalStars = computed(() => calendarStats.value?.totalStars ?? 0)
+const monthStudyDays = computed(() => calendarStats.value?.totalDays ?? 0)
 
 const cells = computed(() => {
   const year = currentYear.value
@@ -47,7 +56,7 @@ const cells = computed(() => {
   const firstDay = new Date(year, month - 1, 1).getDay()
   const daysInMonth = month === 2 && ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 29 : MONTH_DAYS[month - 1]
   const key = `${year}-${month}`
-  const monthData = calendarData[key] || {}
+  const monthData = calendarData.value[key] || {}
 
   const result: { day: number; info: ReturnType<typeof getSelectedStudyDay>; isToday: boolean; isSelected: boolean }[] = []
 
@@ -69,7 +78,7 @@ const cells = computed(() => {
 })
 
 const selectedInfo = computed(() => {
-  return getSelectedStudyDay(calendarData, currentYear.value, currentMonth.value, selectedDay.value)
+  return getSelectedStudyDay(calendarData.value, currentYear.value, currentMonth.value, selectedDay.value)
 })
 
 const selectedDateInfo = computed(() => {

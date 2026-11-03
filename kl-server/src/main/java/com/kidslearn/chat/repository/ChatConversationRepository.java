@@ -14,6 +14,32 @@ import java.util.UUID;
 public interface ChatConversationRepository extends JpaRepository<ChatConversation, UUID> {
 
     /**
+     * 获取最近 N 条对话记录（按 conversationId 分组）
+     */
+    @Query(value = """
+        SELECT * FROM chat_conversations
+        WHERE parent_id = :parentId AND conversation_id = :conversationId
+        ORDER BY created_at ASC
+        """, nativeQuery = true)
+    List<ChatConversation> findByConversationId(
+        @Param("parentId") UUID parentId,
+        @Param("conversationId") String conversationId);
+
+    /**
+     * 获取最近 N 条对话记录（按 conversationId 分组，带 limit）
+     */
+    @Query(value = """
+        SELECT * FROM chat_conversations
+        WHERE parent_id = :parentId AND conversation_id = :conversationId
+        ORDER BY created_at DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ChatConversation> findRecentByConversationId(
+        @Param("parentId") UUID parentId,
+        @Param("conversationId") String conversationId,
+        @Param("limit") int limit);
+
+    /**
      * 获取最近 N 条对话记录
      */
     @Query(value = """

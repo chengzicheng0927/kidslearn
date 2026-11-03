@@ -20,7 +20,8 @@ public record PlanDetailDTO(
     LocalDate completedAt,
     int totalCompleted,
     int totalCorrect,
-    double accuracy
+    double accuracy,
+    LocalDate createdAt
 ) {
 
     /**
@@ -33,17 +34,6 @@ public record PlanDetailDTO(
         String topic,
         int questionsPerDay,
         String difficulty,
-        List<QuestionDetailDTO> questions
-    ) {}
-
-    /**
-     * 题目详情 DTO
-     */
-    public record QuestionDetailDTO(
-        UUID id,
-        String icon,
-        String question,
-        List<String> options,
-        String answer
+        List<LearningPlanDTO.QuestionDTO> questions
     ) {}
 }

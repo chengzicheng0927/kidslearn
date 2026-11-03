@@ -6,12 +6,17 @@ import com.kidslearn.content.domain.PlanQuestion;
 import com.kidslearn.content.domain.Question;
 import com.kidslearn.content.repository.PlanQuestionRepository;
 import com.kidslearn.content.repository.QuestionRepository;
+import com.kidslearn.content.service.QuestionBankService;
 import com.kidslearn.report.domain.LearningPlan;
 import com.kidslearn.report.dto.LearningPlanDTO;
 import com.kidslearn.report.dto.PlanDetailDTO;
 import com.kidslearn.report.repository.LearningPlanRepository;
+import com.kidslearn.user.domain.Child;
+import com.kidslearn.user.repository.ChildRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,10 +38,22 @@ public class PlanService {
     private final LearningPlanRepository planRepository;
     private final QuestionRepository questionRepository;
     private final PlanQuestionRepository planQuestionRepository;
+    private final ChildRepository childRepository;
+    // @Lazy 避免循环依赖：PlanService → QuestionBankService → LlmService → PlanService
+    private final ObjectProvider<QuestionBankService> questionBankServiceProvider;
 
     public List<LearningPlanDTO> getPlans(UUID childId) {
-        return planRepository.findByChildIdOrderByCreatedAtDesc(childId)
-            .stream().map(this::toPlanDTO).toList();
+        List<LearningPlan> plans = planRepository.findByChildIdAndStatusNotOrderByCreatedAtDesc(childId, "cancelled");
+        if (plans.isEmpty()) return List.of();
+
+        // 批量查询所有计划的题目，避免 N+1
+        List<UUID> planIds = plans.stream().map(LearningPlan::getId).toList();
+        Map<UUID, List<PlanQuestion>> questionsByPlan = planQuestionRepository.findByPlanIdIn(planIds).stream()
+                .collect(java.util.stream.Collectors.groupingBy(PlanQuestion::getPlanId));
+
+        return plans.stream()
+                .map(p -> toPlanDTO(p, questionsByPlan.getOrDefault(p.getId(), List.of())))
+                .toList();
     }
 
     public LearningPlan findById(UUID planId) {
@@ -70,7 +87,7 @@ public class PlanService {
                 .filter(pq -> pq.getPhaseIndex() == phaseIndex)
                 .toList();
 
-            List<PlanDetailDTO.QuestionDetailDTO> questionDetails = new ArrayList<>();
+            List<LearningPlanDTO.QuestionDTO> questionDetails = new ArrayList<>();
             for (PlanQuestion pq : planQuestions) {
                 Question q = questionRepository.findById(pq.getQuestionId()).orElse(null);
                 if (q != null) {
@@ -82,7 +99,7 @@ public class PlanService {
                     // 已完成的计划返回正确答案
                     String answer = isCompleted ? getOptionTextById(q, q.getCorrectAnswerId()) : null;
 
-                    questionDetails.add(new PlanDetailDTO.QuestionDetailDTO(
+                    questionDetails.add(new LearningPlanDTO.QuestionDTO(
                         q.getId(),
                         getQuestionIcon(q.getTopic()),
                         q.getQuestion(),
@@ -116,7 +133,8 @@ public class PlanService {
             toLocalDate(plan.getCompletedAt()),
             plan.getTotalCompleted(),
             plan.getTotalCorrect(),
-            accuracy
+            accuracy,
+            toLocalDate(plan.getCreatedAt())
         );
     }
 
@@ -160,11 +178,41 @@ public class PlanService {
         if (!"pending".equals(plan.getStatus())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_STATUS", "计划不在待确认状态");
         }
+
+        // 检查同一科目是否有进行中的计划（每个科目只能有一个进行中计划）
+        List<LearningPlan> activePlans = planRepository.findByChildIdAndStatus(plan.getChildId(), "active");
+        boolean hasSameSubject = activePlans.stream()
+            .anyMatch(p -> p.getSubject().equals(plan.getSubject()));
+        if (hasSameSubject) {
+            String subjectLabel = "en".equals(plan.getSubject()) ? "英语" : "数学";
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "DUPLICATE_ACTIVE_PLAN",
+                "已有进行中的" + subjectLabel + "学习计划，不能重复确认");
+        }
+
         plan.setStatus("active");
         plan.setStartedAt(Instant.now());
 
-        // 将题库中的题打散分配到计划周期的每一天
-        assignQuestionsToPlan(plan);
+        // 获取孩子年级
+        Child child = childRepository.findById(plan.getChildId()).orElse(null);
+        String grade = child != null && child.getGrade() != null ? child.getGrade() : "二年级";
+
+        // 优先从题库按 topic_key 匹配分配
+        var bankService = questionBankServiceProvider.getObject();
+        try {
+            var result = bankService.assignQuestionsFromBank(
+                plan.getId(), plan.getChildId(), grade, plan.getSubject(), plan.getPhases()
+            );
+            // 题库分配失败（题目不足且未分配任何题目）→ fallback
+            if (!result.success() && result.assignedCount() == 0) {
+                log.warn("BANK_ASSIGN_INSUFFICIENT | planId={} | message={} | fallback to assignQuestionsToPlan",
+                    planId, result.message());
+                assignQuestionsToPlan(plan);
+            }
+        } catch (Exception e) {
+            log.warn("BANK_ASSIGN_FALLBACK | planId={} | error={} | fallback to assignQuestionsToPlan",
+                planId, e.getMessage());
+            assignQuestionsToPlan(plan);
+        }
 
         return planRepository.save(plan);
     }
@@ -259,22 +307,57 @@ public class PlanService {
         log.info("PLAN_QUESTIONS_ADJUSTED | planId={} | removedCount={}", planId, removedQuestionIds.size());
     }
 
-    @SuppressWarnings("unchecked")
+    /**
+     * 单个计划的 DTO 转换（内部查询题目）
+     */
     public LearningPlanDTO toPlanDTO(LearningPlan p) {
-        List<LearningPlanDTO.PlanPhaseDTO> phases = p.getPhases().stream()
-            .map(phase -> new LearningPlanDTO.PlanPhaseDTO(
-                (String) phase.getOrDefault("dayRange", ""),
-                (String) phase.getOrDefault("goal", ""),
-                (String) phase.getOrDefault("topic", ""),
-                phase.containsKey("questionsPerDay") ? ((Number) phase.get("questionsPerDay")).intValue() : 5,
-                (String) phase.getOrDefault("difficulty", "medium")
-            ))
-            .toList();
+        List<PlanQuestion> questions = planQuestionRepository.findByPlanId(p.getId());
+        return toPlanDTO(p, questions);
+    }
+
+    @SuppressWarnings("unchecked")
+    public LearningPlanDTO toPlanDTO(LearningPlan p, List<PlanQuestion> allQuestions) {
+        // 按 phaseIndex 分组
+        Map<Integer, List<PlanQuestion>> questionsByPhase = allQuestions.stream()
+                .collect(java.util.stream.Collectors.groupingBy(PlanQuestion::getPhaseIndex));
+
+        List<LearningPlanDTO.PlanPhaseDTO> phases = new ArrayList<>();
+        for (int i = 0; i < p.getPhases().size(); i++) {
+            Map<String, Object> phase = p.getPhases().get(i);
+
+            List<LearningPlanDTO.QuestionDTO> questions = new ArrayList<>();
+            for (PlanQuestion pq : questionsByPhase.getOrDefault(i, List.of())) {
+                Question q = questionRepository.findById(pq.getQuestionId()).orElse(null);
+                if (q != null) {
+                    List<String> options = q.getOptions().stream()
+                            .map(opt -> opt.getOrDefault("text", ""))
+                            .toList();
+                    String answer = getOptionTextById(q, q.getCorrectAnswerId());
+                    questions.add(new LearningPlanDTO.QuestionDTO(
+                            q.getId(),
+                            getQuestionIcon(q.getTopic()),
+                            q.getQuestion(),
+                            options,
+                            answer
+                    ));
+                }
+            }
+
+            phases.add(new LearningPlanDTO.PlanPhaseDTO(
+                    (String) phase.getOrDefault("dayRange", ""),
+                    (String) phase.getOrDefault("goal", ""),
+                    (String) phase.getOrDefault("topic", ""),
+                    phase.containsKey("questionsPerDay") ? ((Number) phase.get("questionsPerDay")).intValue() : 5,
+                    (String) phase.getOrDefault("difficulty", "medium"),
+                    questions
+            ));
+        }
 
         return new LearningPlanDTO(
             p.getId(), p.getSubject(), p.getDurationDays(), p.getDailyGoal(),
             phases, p.getDifficulty(), p.getEstimatedMinutes(), p.getStatus(),
-            toLocalDate(p.getCreatedAt()), toLocalDate(p.getStartedAt()), toLocalDate(p.getCompletedAt())
+            toLocalDate(p.getCreatedAt()), toLocalDate(p.getStartedAt()), toLocalDate(p.getCompletedAt()),
+            p.getCurrentPhaseIndex()
         );
     }
 

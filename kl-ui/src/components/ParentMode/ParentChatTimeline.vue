@@ -5,7 +5,7 @@ import TwemojiText from '../TwemojiText.vue'
 import type { ParentMessage } from '../../types/parent'
 
 defineEmits<{
-  (e: 'suggestion', text: string): void
+  (e: 'suggestion', text: string, subject?: 'en' | 'ma'): void
   (e: 'action', action: string, message: ParentMessage): void
 }>()
 
@@ -44,10 +44,10 @@ watch(
         请告诉我您想要什么样的计划？
       </div>
       <div class="suggestion-chips">
-        <button class="chip" @click="$emit('suggestion', '帮我制定一个14天的英语学习计划')">
+        <button class="chip" @click="$emit('suggestion', '帮我制定一个14天的英语学习计划', 'en')">
           <TwemojiText html="📚" /> 14天英语计划
         </button>
-        <button class="chip" @click="$emit('suggestion', '帮我制定一个7天的数学学习计划')">
+        <button class="chip" @click="$emit('suggestion', '帮我制定一个7天的数学学习计划', 'ma')">
           <TwemojiText html="🔢" /> 7天数学计划
         </button>
       </div>

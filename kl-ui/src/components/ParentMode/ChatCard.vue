@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import TwemojiText from '../TwemojiText.vue'
-import type { ChatCard, PhaseDetail, QuestionDetail } from '../../types/parent'
+import type { ChatCard } from '../../types/parent'
 
 const props = defineProps<{
   card: ChatCard
@@ -96,7 +96,7 @@ function removeQuestion(phaseIndex: number, questionId: string) {
         </div>
         <!-- 题目列表 -->
         <div v-if="phase.questions?.length" class="question-list">
-          <div v-for="(q, qIndex) in phase.questions" :key="q.id" class="question-item">
+          <div v-for="q in phase.questions" :key="q.id" class="question-item">
             <div class="question-main">
               <span class="question-icon">{{ q.icon }}</span>
               <span class="question-text">{{ q.question }}</span>

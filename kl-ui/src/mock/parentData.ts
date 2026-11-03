@@ -19,6 +19,7 @@ export const mockParentPlans: LearningPlan[] = [
     status: 'active',
     createdAt: '2026-03-15',
     startedAt: '2026-03-15',
+    currentPhaseIndex: 0,
   },
 ]
 
@@ -42,6 +43,7 @@ export async function mockGeneratePlan(prompt: string): Promise<LearningPlan> {
     difficulty: 'medium',
     status: 'pending',
     createdAt: new Date().toISOString(),
+    currentPhaseIndex: 0,
   }
 }
 
